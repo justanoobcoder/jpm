@@ -373,4 +373,143 @@ mod tests {
             PackageError::Field(FieldError::Whitespace("info.src_dir"))
         ));
     }
+
+    #[test]
+    fn test_validate_hash_valid() {
+        assert!(validate_hash("md5:d41d8cd98f00b204e9800998ecf8427e").is_ok());
+        assert!(validate_hash("sha1:da39a3ee5e6b4b0d3255bfef95601890afd80709").is_ok());
+        assert!(
+            validate_hash(
+                "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_hash(
+                "sha256:E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn test_validate_hash_skip() {
+        assert!(validate_hash("skip").is_ok());
+        assert!(validate_hash("SKIP").is_ok());
+        assert!(validate_hash("Skip").is_ok());
+        assert!(validate_hash("sKiP").is_ok());
+    }
+
+    #[test]
+    fn test_validate_hash_empty_and_whitespace() {
+        let err_empty = validate_hash("").unwrap_err();
+        assert!(matches!(
+            err_empty,
+            PackageError::Field(FieldError::Empty("info.hash"))
+        ));
+
+        let err_leading = validate_hash(
+            " sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err_leading,
+            PackageError::Field(FieldError::Whitespace("info.hash"))
+        ));
+
+        let err_trailing = validate_hash(
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ",
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err_trailing,
+            PackageError::Field(FieldError::Whitespace("info.hash"))
+        ));
+    }
+
+    #[test]
+    fn test_validate_hash_missing_colon() {
+        let err = validate_hash("sha256").unwrap_err();
+        assert!(matches!(
+            err,
+            PackageError::InvalidHash(msg) if msg == "expected `algo:hash`, got `sha256`"
+        ));
+
+        let err_raw =
+            validate_hash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+                .unwrap_err();
+        assert!(matches!(
+            err_raw,
+            PackageError::InvalidHash(msg) if msg.contains("expected `algo:hash`")
+        ));
+    }
+
+    #[test]
+    fn test_validate_hash_unsupported_algorithm() {
+        let err_sha512 = validate_hash("sha512:1234").unwrap_err();
+        assert!(matches!(
+            err_sha512,
+            PackageError::InvalidHash(msg) if msg == "unsupported algorithm `sha512` (supported: md5, sha1, sha256)"
+        ));
+
+        let err_blake3 = validate_hash("blake3:1234").unwrap_err();
+        assert!(matches!(
+            err_blake3,
+            PackageError::InvalidHash(msg) if msg == "unsupported algorithm `blake3` (supported: md5, sha1, sha256)"
+        ));
+    }
+
+    #[test]
+    fn test_validate_hash_non_hex_digest() {
+        let err_g = validate_hash("md5:d41d8cd98f00b204e9800998ecf8427g").unwrap_err();
+        assert!(matches!(
+            err_g,
+            PackageError::InvalidHash(msg) if msg == "hash must contain hex characters only"
+        ));
+
+        let err_sym = validate_hash("sha1:da39a3ee5e6b4b0d3255bfef95601890afd8070!").unwrap_err();
+        assert!(matches!(
+            err_sym,
+            PackageError::InvalidHash(msg) if msg == "hash must contain hex characters only"
+        ));
+    }
+
+    #[test]
+    fn test_validate_hash_length_mismatch() {
+        let err_md5_short = validate_hash("md5:d41d8cd98f00b204e9800998ecf8427").unwrap_err();
+        assert!(matches!(
+            err_md5_short,
+            PackageError::InvalidHash(msg) if msg == "expected md5 hash length is 32, got 31"
+        ));
+
+        let err_md5_long = validate_hash("md5:d41d8cd98f00b204e9800998ecf8427ea").unwrap_err();
+        assert!(matches!(
+            err_md5_long,
+            PackageError::InvalidHash(msg) if msg == "expected md5 hash length is 32, got 33"
+        ));
+
+        let err_sha1_short =
+            validate_hash("sha1:da39a3ee5e6b4b0d3255bfef95601890afd8070").unwrap_err();
+        assert!(matches!(
+            err_sha1_short,
+            PackageError::InvalidHash(msg) if msg == "expected sha1 hash length is 40, got 39"
+        ));
+
+        let err_sha256_short =
+            validate_hash("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85")
+                .unwrap_err();
+        assert!(matches!(
+            err_sha256_short,
+            PackageError::InvalidHash(msg) if msg == "expected sha256 hash length is 64, got 63"
+        ));
+
+        let err_sha256_long = validate_hash(
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855a",
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err_sha256_long,
+            PackageError::InvalidHash(msg) if msg == "expected sha256 hash length is 64, got 65"
+        ));
+    }
 }

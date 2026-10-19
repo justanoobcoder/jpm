@@ -8,7 +8,7 @@ pkgrel = 1
 desc = "A TUI monitor of resources"
 license = "Apache-2.0"
 src = "https://example.com/btop-1.4.7.tar.gz"
-hash = "sha256:1234567890abcdef"
+hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 [build]
 system = "make"
@@ -57,7 +57,10 @@ fn test_parse_minimal_manifest() {
     assert_eq!(pkg.info.desc, "A TUI monitor of resources");
     assert_eq!(pkg.info.license, "Apache-2.0");
     assert_eq!(pkg.info.src, "https://example.com/btop-1.4.7.tar.gz");
-    assert_eq!(pkg.info.hash, "sha256:1234567890abcdef");
+    assert_eq!(
+        pkg.info.hash,
+        "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
     assert_eq!(pkg.info.url, None);
     assert_eq!(pkg.info.src_dir, None);
 
@@ -140,7 +143,7 @@ pkgrel = 1
 desc = "test"
 license = "MIT"
 src = "https://example.com/src.tar.gz"
-hash = "sha256:123"
+hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 [build]
 system = "{name}"
@@ -162,7 +165,7 @@ pkgrel = 1
 desc = "test"
 license = "MIT"
 src = "https://example.com/src.tar.gz"
-hash = "sha256:123"
+hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 [build]
 system = "unsupported_system"
@@ -181,7 +184,7 @@ pkgrel = 1
 desc = "test"
 license = "MIT"
 src = "https://example.com/src.tar.gz"
-hash = "sha256:123"
+hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 [dependency]
 
@@ -225,7 +228,7 @@ pkgrel = 1
 desc = "test"
 license = "MIT"
 src = "https://example.com/src.tar.gz"
-hash = "sha256:123"
+hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 "#;
     let err = parse(toml).unwrap_err();
     assert!(matches!(err, PackageError::Parse(_)));
@@ -244,7 +247,8 @@ fn test_parse_missing_required_info_fields() {
             r#"desc = "test""#.to_string(),
             r#"license = "MIT""#.to_string(),
             r#"src = "https://example.com/src.tar.gz""#.to_string(),
-            r#"hash = "sha256:123""#.to_string(),
+            r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#
+                .to_string(),
             "[build]".to_string(),
             r#"system = "make""#.to_string(),
         ];
@@ -268,7 +272,7 @@ pkgrel = "one"
 desc = "test"
 license = "MIT"
 src = "https://example.com/src.tar.gz"
-hash = "sha256:123"
+hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 [build]
 system = "make"
@@ -279,21 +283,18 @@ system = "make"
 
 #[test]
 fn test_parse_name_validation_errors() {
-    // Starts with '-'
     let toml_dash = VALID_MINIMAL_MANIFEST.replace(r#"name = "btop""#, r#"name = "-btop""#);
     assert_eq!(
         parse(&toml_dash).unwrap_err().to_string(),
         "Invalid package name: must not start with `-`"
     );
 
-    // Starts with '_'
     let toml_under = VALID_MINIMAL_MANIFEST.replace(r#"name = "btop""#, r#"name = "_btop""#);
     assert_eq!(
         parse(&toml_under).unwrap_err().to_string(),
         "Invalid package name: must not start with `_`"
     );
 
-    // Invalid character
     let toml_invalid_char =
         VALID_MINIMAL_MANIFEST.replace(r#"name = "btop""#, r#"name = "btop.pkg""#);
     assert_eq!(
@@ -301,21 +302,18 @@ fn test_parse_name_validation_errors() {
         "Invalid package name: invalid character `.` in name (allowed: a-z, A-Z, 0-9, `-`, `_`)"
     );
 
-    // Empty name
     let toml_empty = VALID_MINIMAL_MANIFEST.replace(r#"name = "btop""#, r#"name = """#);
     assert_eq!(
         parse(&toml_empty).unwrap_err().to_string(),
         "Invalid field value: `info.name` must not be empty"
     );
 
-    // Whitespace name
     let toml_ws = VALID_MINIMAL_MANIFEST.replace(r#"name = "btop""#, r#"name = " btop""#);
     assert_eq!(
         parse(&toml_ws).unwrap_err().to_string(),
         "Invalid field value: `info.name` must not have leading or trailing whitespace"
     );
 
-    // Too long name (> 64 characters)
     let long_name = "a".repeat(65);
     let toml_too_long =
         VALID_MINIMAL_MANIFEST.replace(r#"name = "btop""#, &format!(r#"name = "{long_name}""#));
@@ -370,7 +368,9 @@ fn test_parse_field_validation_errors() {
             "desc" => r#"desc = "A TUI monitor of resources""#,
             "license" => r#"license = "Apache-2.0""#,
             "src" => r#"src = "https://example.com/btop-1.4.7.tar.gz""#,
-            "hash" => r#"hash = "sha256:1234567890abcdef""#,
+            "hash" => {
+                r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#
+            }
             _ => unreachable!(),
         };
 
@@ -385,7 +385,6 @@ fn test_parse_field_validation_errors() {
 
 #[test]
 fn test_parse_optional_fields_validation_errors() {
-    // Empty url
     let toml_url_empty = VALID_MINIMAL_MANIFEST.replace("[build]", "url = \"\"\n[build]");
     let err = parse(&toml_url_empty).unwrap_err();
     assert!(matches!(
@@ -393,7 +392,6 @@ fn test_parse_optional_fields_validation_errors() {
         PackageError::Field(FieldError::Empty("info.url"))
     ));
 
-    // Whitespace url
     let toml_url_ws =
         VALID_MINIMAL_MANIFEST.replace("[build]", "url = \" https://example.com \"\n[build]");
     let err = parse(&toml_url_ws).unwrap_err();
@@ -402,7 +400,6 @@ fn test_parse_optional_fields_validation_errors() {
         PackageError::Field(FieldError::Whitespace("info.url"))
     ));
 
-    // Empty src_dir
     let toml_dir_empty = VALID_MINIMAL_MANIFEST.replace("[build]", "src_dir = \"\"\n[build]");
     let err = parse(&toml_dir_empty).unwrap_err();
     assert!(matches!(
@@ -410,7 +407,6 @@ fn test_parse_optional_fields_validation_errors() {
         PackageError::Field(FieldError::Empty("info.src_dir"))
     ));
 
-    // Whitespace src_dir
     let toml_dir_ws = VALID_MINIMAL_MANIFEST.replace("[build]", "src_dir = \" dir \"\n[build]");
     let err = parse(&toml_dir_ws).unwrap_err();
     assert!(matches!(
@@ -452,5 +448,90 @@ fn test_error_display() {
     assert_eq!(
         pkg_name_err.to_string(),
         "Invalid package name: must not start with `-`"
+    );
+
+    let pkg_hash_err = PackageError::InvalidHash("hash must contain hex characters only".into());
+    assert_eq!(
+        pkg_hash_err.to_string(),
+        "Invalid hash: hash must contain hex characters only"
+    );
+}
+
+#[test]
+fn test_parse_hash_valid_formats() {
+    let valid_hashes = [
+        "md5:d41d8cd98f00b204e9800998ecf8427e",
+        "sha1:da39a3ee5e6b4b0d3255bfef95601890afd80709",
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha256:E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "skip",
+        "SKIP",
+        "Skip",
+    ];
+
+    for hash in valid_hashes {
+        let toml = VALID_MINIMAL_MANIFEST.replace(
+            r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#,
+            &format!(r#"hash = "{hash}""#),
+        );
+        let pkg = parse(&toml).unwrap_or_else(|e| panic!("failed to parse valid hash {hash}: {e}"));
+        assert_eq!(pkg.info.hash, hash);
+    }
+}
+
+#[test]
+fn test_parse_hash_validation_errors() {
+    let toml_no_colon = VALID_MINIMAL_MANIFEST.replace(
+        r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#,
+        r#"hash = "sha256""#,
+    );
+    assert_eq!(
+        parse(&toml_no_colon).unwrap_err().to_string(),
+        "Invalid hash: expected `algo:hash`, got `sha256`"
+    );
+
+    let toml_unsupported = VALID_MINIMAL_MANIFEST.replace(
+        r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#,
+        r#"hash = "sha512:1234""#,
+    );
+    assert_eq!(
+        parse(&toml_unsupported).unwrap_err().to_string(),
+        "Invalid hash: unsupported algorithm `sha512` (supported: md5, sha1, sha256)"
+    );
+
+    let toml_non_hex = VALID_MINIMAL_MANIFEST.replace(
+        r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#,
+        r#"hash = "md5:d41d8cd98f00b204e9800998ecf8427g""#,
+    );
+    assert_eq!(
+        parse(&toml_non_hex).unwrap_err().to_string(),
+        "Invalid hash: hash must contain hex characters only"
+    );
+
+    let toml_bad_len = VALID_MINIMAL_MANIFEST.replace(
+        r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#,
+        r#"hash = "sha256:1234""#,
+    );
+    assert_eq!(
+        parse(&toml_bad_len).unwrap_err().to_string(),
+        "Invalid hash: expected sha256 hash length is 64, got 4"
+    );
+
+    let toml_md5_short = VALID_MINIMAL_MANIFEST.replace(
+        r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#,
+        r#"hash = "md5:1234""#,
+    );
+    assert_eq!(
+        parse(&toml_md5_short).unwrap_err().to_string(),
+        "Invalid hash: expected md5 hash length is 32, got 4"
+    );
+
+    let toml_sha1_short = VALID_MINIMAL_MANIFEST.replace(
+        r#"hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad""#,
+        r#"hash = "sha1:1234""#,
+    );
+    assert_eq!(
+        parse(&toml_sha1_short).unwrap_err().to_string(),
+        "Invalid hash: expected sha1 hash length is 40, got 4"
     );
 }
