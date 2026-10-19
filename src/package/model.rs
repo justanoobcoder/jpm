@@ -1,6 +1,5 @@
 use serde::Deserialize;
 
-
 #[derive(Deserialize, Debug)]
 pub struct Package {
     pub info: Info,
@@ -60,4 +59,3 @@ pub struct Build {
     pub install: Option<String>,
     pub out_of_src: Option<bool>,
 }
-
