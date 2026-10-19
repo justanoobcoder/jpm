@@ -31,9 +31,10 @@ pub struct Dependency {
     pub optional: Vec<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 pub struct Hook {
-    pub patches: Option<String>,
+    #[serde(default)]
+    pub patches: Vec<String>,
     pub pre_configure: Option<String>,
     pub pre_install: Option<String>,
     pub post_install: Option<String>,

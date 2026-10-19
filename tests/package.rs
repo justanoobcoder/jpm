@@ -39,7 +39,7 @@ install = "make DESTDIR=$DESTDIR PREFIX=/usr install"
 out_of_src = false
 
 [hook]
-patches = "patch -p1 < fix.patch"
+patches = ["fix.patch"]
 pre_configure = "echo pre_configure"
 pre_install = "echo pre_install"
 post_install = "echo post_install"
@@ -115,7 +115,7 @@ fn test_parse_full_manifest() {
     assert_eq!(pkg.build.out_of_src, Some(false));
 
     let hook = pkg.hook.expect("hook should be present");
-    assert_eq!(hook.patches.as_deref(), Some("patch -p1 < fix.patch"));
+    assert_eq!(hook.patches[0], "fix.patch");
     assert_eq!(hook.pre_configure.as_deref(), Some("echo pre_configure"));
     assert_eq!(hook.pre_install.as_deref(), Some("echo pre_install"));
     assert_eq!(hook.post_install.as_deref(), Some("echo post_install"));
