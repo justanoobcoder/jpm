@@ -29,4 +29,7 @@ pub enum PackageError {
 
     #[error("Invalid package name: {0}")]
     InvalidName(#[from] NameError),
+
+    #[error("Invalid hash: {0}")]
+    InvalidHash(String),
 }

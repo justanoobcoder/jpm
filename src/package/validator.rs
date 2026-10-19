@@ -2,6 +2,7 @@ use super::error::{FieldError, NameError, PackageError};
 use super::model::Package;
 
 pub const MAX_NAME_LEN: usize = 64;
+const ALGOS: &[(&str, usize)] = &[("md5", 32), ("sha1", 40), ("sha256", 64)];
 
 fn validate_text(field: &'static str, value: &str) -> Result<(), PackageError> {
     if value.is_empty() {
@@ -31,6 +32,44 @@ fn validate_name(name: &str) -> Result<(), PackageError> {
     Ok(())
 }
 
+fn validate_hash(hash: &str) -> Result<(), PackageError> {
+    validate_text("info.hash", hash)?;
+
+    if hash.eq_ignore_ascii_case("skip") {
+        return Ok(());
+    }
+
+    let (algo, digest) = hash
+        .split_once(':')
+        .ok_or_else(|| PackageError::InvalidHash(format!("expected `algo:hash`, got `{hash}`")))?;
+
+    let &(_, expected_len) = ALGOS
+        .iter()
+        .find(|(name, _)| *name == algo)
+        .ok_or_else(|| {
+            let names: Vec<_> = ALGOS.iter().map(|(n, _)| *n).collect();
+            PackageError::InvalidHash(format!(
+                "unsupported algorithm `{algo}` (supported: {})",
+                names.join(", ")
+            ))
+        })?;
+
+    if !digest.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(PackageError::InvalidHash(
+            "hash must contain hex characters only".into(),
+        ));
+    }
+
+    if digest.len() != expected_len {
+        return Err(PackageError::InvalidHash(format!(
+            "expected {algo} hash length is {expected_len}, got {}",
+            digest.len()
+        )));
+    }
+
+    Ok(())
+}
+
 pub fn validate(pkg: &Package) -> Result<(), PackageError> {
     let info = &pkg.info;
 
@@ -39,7 +78,7 @@ pub fn validate(pkg: &Package) -> Result<(), PackageError> {
     validate_text("info.desc", &info.desc)?;
     validate_text("info.license", &info.license)?;
     validate_text("info.src", &info.src)?;
-    validate_text("info.hash", &info.hash)?;
+    validate_hash(&info.hash)?;
 
     if let Some(url) = &info.url {
         validate_text("info.url", url)?;
