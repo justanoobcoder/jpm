@@ -1,7 +1,7 @@
 use super::validator::MAX_NAME_LEN;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum FieldError {
     #[error("`{0}` must not be empty")]
     Empty(&'static str),
@@ -9,7 +9,7 @@ pub enum FieldError {
     Whitespace(&'static str),
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum NameError {
     #[error("too long (max {MAX_NAME_LEN} characters)")]
     TooLong,
