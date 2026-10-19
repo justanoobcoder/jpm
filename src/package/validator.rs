@@ -70,7 +70,7 @@ fn validate_hash(hash: &str) -> Result<(), PackageError> {
     Ok(())
 }
 
-pub fn validate(pkg: &Package) -> Result<(), PackageError> {
+pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
     let info = &pkg.info;
 
     validate_name(&info.name)?;
@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn test_validate_package_valid() {
         let pkg = sample_package();
-        assert!(validate(&pkg).is_ok());
+        assert!(validate_package(&pkg).is_ok());
     }
 
     #[test]
@@ -263,7 +263,7 @@ mod tests {
         let mut pkg = sample_package();
         pkg.info.url = None;
         pkg.info.src_dir = None;
-        assert!(validate(&pkg).is_ok());
+        assert!(validate_package(&pkg).is_ok());
     }
 
     #[test]
@@ -271,35 +271,35 @@ mod tests {
         let mut pkg = sample_package();
         pkg.info.pkgver = String::new();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Empty("info.pkgver"))
         ));
 
         let mut pkg = sample_package();
         pkg.info.desc = String::new();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Empty("info.desc"))
         ));
 
         let mut pkg = sample_package();
         pkg.info.license = String::new();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Empty("info.license"))
         ));
 
         let mut pkg = sample_package();
         pkg.info.src = String::new();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Empty("info.src"))
         ));
 
         let mut pkg = sample_package();
         pkg.info.hash = String::new();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Empty("info.hash"))
         ));
     }
@@ -309,35 +309,35 @@ mod tests {
         let mut pkg = sample_package();
         pkg.info.pkgver = " 1.4.7 ".to_string();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Whitespace("info.pkgver"))
         ));
 
         let mut pkg = sample_package();
         pkg.info.desc = "desc ".to_string();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Whitespace("info.desc"))
         ));
 
         let mut pkg = sample_package();
         pkg.info.license = " MIT".to_string();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Whitespace("info.license"))
         ));
 
         let mut pkg = sample_package();
         pkg.info.src = " https://example.com/src.tar.gz".to_string();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Whitespace("info.src"))
         ));
 
         let mut pkg = sample_package();
         pkg.info.hash = "sha256:123 ".to_string();
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Whitespace("info.hash"))
         ));
     }
@@ -347,13 +347,13 @@ mod tests {
         let mut pkg = sample_package();
         pkg.info.url = Some(String::new());
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Empty("info.url"))
         ));
 
         pkg.info.url = Some(" https://example.com".to_string());
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Whitespace("info.url"))
         ));
     }
@@ -363,13 +363,13 @@ mod tests {
         let mut pkg = sample_package();
         pkg.info.src_dir = Some(String::new());
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Empty("info.src_dir"))
         ));
 
         pkg.info.src_dir = Some("btop-1.4.7 ".to_string());
         assert!(matches!(
-            validate(&pkg).unwrap_err(),
+            validate_package(&pkg).unwrap_err(),
             PackageError::Field(FieldError::Whitespace("info.src_dir"))
         ));
     }
