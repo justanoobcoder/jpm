@@ -81,6 +81,17 @@ fn validate_dependency(field: &'static str, deps: &Vec<String>) -> Result<(), Pa
     Ok(())
 }
 
+fn validate_patch(field: &'static str, patches: &Vec<String>) -> Result<(), PackageError> {
+    if patches.is_empty() {
+        return Ok(());
+    }
+    for p in patches {
+        validate_text(field, p)?;
+    }
+
+    Ok(())
+}
+
 pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
     let info = &pkg.info;
 
@@ -102,6 +113,24 @@ pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
         validate_dependency("dependency.build", &dep.build)?;
         validate_dependency("dependency.runtime", &dep.runtime)?;
         validate_dependency("dependency.optional", &dep.optional)?;
+    }
+
+    if let Some(hook) = &pkg.hook {
+        validate_patch("hook.patches", &hook.patches)?;
+
+        let fields = [
+            ("hook.pre_configure", &hook.pre_configure),
+            ("hook.pre_install", &hook.pre_install),
+            ("hook.post_install", &hook.post_install),
+            ("hook.pre_remove", &hook.pre_remove),
+            ("hook.post_remove", &hook.post_remove),
+        ];
+
+        for (name, value) in fields {
+            if value.as_ref().is_some_and(|v| v.is_empty()) {
+                return Err(FieldError::Empty(name).into());
+            }
+        }
     }
 
     Ok(())
