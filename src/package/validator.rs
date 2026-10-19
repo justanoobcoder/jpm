@@ -110,7 +110,7 @@ pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::package::model::{Build, BuildSystem, Info, Package};
+    use crate::package::model::{Build, BuildSystem, Dependency, Info, Package};
 
     fn sample_package() -> Package {
         Package {
@@ -527,6 +527,142 @@ mod tests {
         assert!(matches!(
             err_sha256_long,
             PackageError::InvalidHash(msg) if msg == "expected sha256 hash length is 64, got 65"
+        ));
+    }
+
+    #[test]
+    fn test_validate_dependency_empty() {
+        let deps = vec![];
+        assert!(validate_dependency("dependency.build", &deps).is_ok());
+    }
+
+    #[test]
+    fn test_validate_dependency_valid() {
+        let deps = vec![
+            "cmake".to_string(),
+            "gcc-core".to_string(),
+            "lib32_zlib".to_string(),
+            "a".repeat(MAX_NAME_LEN),
+        ];
+        assert!(validate_dependency("dependency.build", &deps).is_ok());
+    }
+
+    #[test]
+    fn test_validate_dependency_empty_item() {
+        let deps = vec!["cmake".to_string(), "".to_string()];
+        let err = validate_dependency("dependency.build", &deps).unwrap_err();
+        assert!(matches!(
+            err,
+            PackageError::Field(FieldError::Empty("dependency.build"))
+        ));
+    }
+
+    #[test]
+    fn test_validate_dependency_whitespace_item() {
+        let deps = vec![" gcc".to_string()];
+        let err = validate_dependency("dependency.runtime", &deps).unwrap_err();
+        assert!(matches!(
+            err,
+            PackageError::Field(FieldError::Whitespace("dependency.runtime"))
+        ));
+
+        let deps_trailing = vec!["gcc ".to_string()];
+        let err_trailing = validate_dependency("dependency.optional", &deps_trailing).unwrap_err();
+        assert!(matches!(
+            err_trailing,
+            PackageError::Field(FieldError::Whitespace("dependency.optional"))
+        ));
+    }
+
+    #[test]
+    fn test_validate_dependency_invalid_chars() {
+        let deps_dot = vec!["libfoo.so".to_string()];
+        let err_dot = validate_dependency("dependency.runtime", &deps_dot).unwrap_err();
+        assert!(matches!(
+            err_dot,
+            PackageError::InvalidName(NameError::InvalidChar('.'))
+        ));
+
+        let deps_at = vec!["pkg@1".to_string()];
+        let err_at = validate_dependency("dependency.build", &deps_at).unwrap_err();
+        assert!(matches!(
+            err_at,
+            PackageError::InvalidName(NameError::InvalidChar('@'))
+        ));
+
+        let deps_space = vec!["pkg name".to_string()];
+        let err_space = validate_dependency("dependency.optional", &deps_space).unwrap_err();
+        assert!(matches!(
+            err_space,
+            PackageError::InvalidName(NameError::InvalidChar(' '))
+        ));
+    }
+
+    #[test]
+    fn test_validate_dependency_invalid_start_char() {
+        let deps_dash = vec!["-pkg".to_string()];
+        let err_dash = validate_dependency("dependency.build", &deps_dash).unwrap_err();
+        assert!(matches!(
+            err_dash,
+            PackageError::InvalidName(NameError::InvalidStartChar('-'))
+        ));
+
+        let deps_under = vec!["_pkg".to_string()];
+        let err_under = validate_dependency("dependency.runtime", &deps_under).unwrap_err();
+        assert!(matches!(
+            err_under,
+            PackageError::InvalidName(NameError::InvalidStartChar('_'))
+        ));
+    }
+
+    #[test]
+    fn test_validate_dependency_too_long() {
+        let deps_long = vec!["a".repeat(MAX_NAME_LEN + 1)];
+        let err = validate_dependency("dependency.build", &deps_long).unwrap_err();
+        assert!(matches!(err, PackageError::InvalidName(NameError::TooLong)));
+    }
+
+    #[test]
+    fn test_validate_package_dependencies() {
+        let mut pkg = sample_package();
+        pkg.dependency = Some(Dependency {
+            build: vec!["cmake".to_string()],
+            runtime: vec!["glibc".to_string()],
+            optional: vec!["wayland".to_string()],
+        });
+        assert!(validate_package(&pkg).is_ok());
+
+        let mut pkg_build_err = sample_package();
+        pkg_build_err.dependency = Some(Dependency {
+            build: vec!["".to_string()],
+            runtime: vec![],
+            optional: vec![],
+        });
+        assert!(matches!(
+            validate_package(&pkg_build_err).unwrap_err(),
+            PackageError::Field(FieldError::Empty("dependency.build"))
+        ));
+
+        let mut pkg_runtime_err = sample_package();
+        pkg_runtime_err.dependency = Some(Dependency {
+            build: vec![],
+            runtime: vec![" glibc".to_string()],
+            optional: vec![],
+        });
+        assert!(matches!(
+            validate_package(&pkg_runtime_err).unwrap_err(),
+            PackageError::Field(FieldError::Whitespace("dependency.runtime"))
+        ));
+
+        let mut pkg_optional_err = sample_package();
+        pkg_optional_err.dependency = Some(Dependency {
+            build: vec![],
+            runtime: vec![],
+            optional: vec!["-wayland".to_string()],
+        });
+        assert!(matches!(
+            validate_package(&pkg_optional_err).unwrap_err(),
+            PackageError::InvalidName(NameError::InvalidStartChar('-'))
         ));
     }
 }

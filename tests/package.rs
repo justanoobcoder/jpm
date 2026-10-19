@@ -535,3 +535,90 @@ fn test_parse_hash_validation_errors() {
         "Invalid hash: expected sha1 hash length is 40, got 4"
     );
 }
+
+#[test]
+fn test_parse_dependency_valid_sections() {
+    let toml = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[dependency]
+build = ["cmake", "gcc-core", "lib32_zlib"]
+runtime = ["glibc", "systemd"]
+optional = ["wayland", "x11"]
+"#
+    );
+    let pkg = parse(&toml).expect("valid dependencies should parse successfully");
+    let dep = pkg.dependency.expect("dependency should be Some");
+    assert_eq!(dep.build, vec!["cmake", "gcc-core", "lib32_zlib"]);
+    assert_eq!(dep.runtime, vec!["glibc", "systemd"]);
+    assert_eq!(dep.optional, vec!["wayland", "x11"]);
+}
+
+#[test]
+fn test_parse_dependency_validation_errors() {
+    let toml_empty_build = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[dependency]
+build = ["cmake", ""]
+"#
+    );
+    assert_eq!(
+        parse(&toml_empty_build).unwrap_err().to_string(),
+        "Invalid field value: `dependency.build` must not be empty"
+    );
+
+    let toml_ws_runtime = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[dependency]
+runtime = [" glibc"]
+"#
+    );
+    assert_eq!(
+        parse(&toml_ws_runtime).unwrap_err().to_string(),
+        "Invalid field value: `dependency.runtime` must not have leading or trailing whitespace"
+    );
+
+    let toml_invalid_char = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[dependency]
+optional = ["wayland.lib"]
+"#
+    );
+    assert_eq!(
+        parse(&toml_invalid_char).unwrap_err().to_string(),
+        "Invalid package name: invalid character `.` in name (allowed: a-z, A-Z, 0-9, `-`, `_`)"
+    );
+
+    let toml_start_dash = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[dependency]
+build = ["-cmake"]
+"#
+    );
+    assert_eq!(
+        parse(&toml_start_dash).unwrap_err().to_string(),
+        "Invalid package name: must not start with `-`"
+    );
+
+    let toml_start_under = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[dependency]
+build = ["_cmake"]
+"#
+    );
+    assert_eq!(
+        parse(&toml_start_under).unwrap_err().to_string(),
+        "Invalid package name: must not start with `_`"
+    );
+
+    let long_dep = "a".repeat(65);
+    let toml_too_long = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[dependency]
+runtime = ["{long_dep}"]
+"#
+    );
+    assert_eq!(
+        parse(&toml_too_long).unwrap_err().to_string(),
+        "Invalid package name: too long (max 64 characters)"
+    );
+}
