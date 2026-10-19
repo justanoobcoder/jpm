@@ -14,8 +14,8 @@ fn validate_text(field: &'static str, value: &str) -> Result<(), PackageError> {
     Ok(())
 }
 
-fn validate_name(name: &str) -> Result<(), PackageError> {
-    validate_text("info.name", name)?;
+fn validate_name(field: &'static str, name: &str) -> Result<(), PackageError> {
+    validate_text(field, name)?;
 
     if let Some(c) = name
         .chars()
@@ -70,10 +70,21 @@ fn validate_hash(hash: &str) -> Result<(), PackageError> {
     Ok(())
 }
 
+fn validate_dependency(field: &'static str, deps: &Vec<String>) -> Result<(), PackageError> {
+    if deps.is_empty() {
+        return Ok(());
+    }
+    for dep in deps {
+        validate_name(field, dep)?;
+    }
+
+    Ok(())
+}
+
 pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
     let info = &pkg.info;
 
-    validate_name(&info.name)?;
+    validate_name("info.name", &info.name)?;
     validate_text("info.pkgver", &info.pkgver)?;
     validate_text("info.desc", &info.desc)?;
     validate_text("info.license", &info.license)?;
@@ -85,6 +96,12 @@ pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
     }
     if let Some(dir) = &info.src_dir {
         validate_text("info.src_dir", dir)?;
+    }
+
+    if let Some(dep) = &pkg.dependency {
+        validate_dependency("dependency.build", &dep.build)?;
+        validate_dependency("dependency.runtime", &dep.runtime)?;
+        validate_dependency("dependency.optional", &dep.optional)?;
     }
 
     Ok(())
@@ -167,21 +184,21 @@ mod tests {
 
     #[test]
     fn test_validate_name_valid() {
-        assert!(validate_name("a").is_ok());
-        assert!(validate_name("Z").is_ok());
-        assert!(validate_name("9").is_ok());
-        assert!(validate_name("btop").is_ok());
-        assert!(validate_name("gcc-core").is_ok());
-        assert!(validate_name("linux_kernel").is_ok());
-        assert!(validate_name("lib32-gcc_9").is_ok());
+        assert!(validate_name("info.name", "a").is_ok());
+        assert!(validate_name("info.name", "Z").is_ok());
+        assert!(validate_name("info.name", "9").is_ok());
+        assert!(validate_name("info.name", "btop").is_ok());
+        assert!(validate_name("info.name", "gcc-core").is_ok());
+        assert!(validate_name("info.name", "linux_kernel").is_ok());
+        assert!(validate_name("info.name", "lib32-gcc_9").is_ok());
 
         let max_len_name = "a".repeat(MAX_NAME_LEN);
-        assert!(validate_name(&max_len_name).is_ok());
+        assert!(validate_name("info.name", &max_len_name).is_ok());
     }
 
     #[test]
     fn test_validate_name_empty() {
-        let err = validate_name("").unwrap_err();
+        let err = validate_name("info.name", "").unwrap_err();
         assert!(matches!(
             err,
             PackageError::Field(FieldError::Empty("info.name"))
@@ -190,13 +207,13 @@ mod tests {
 
     #[test]
     fn test_validate_name_whitespace() {
-        let err = validate_name(" btop").unwrap_err();
+        let err = validate_name("info.name", " btop").unwrap_err();
         assert!(matches!(
             err,
             PackageError::Field(FieldError::Whitespace("info.name"))
         ));
 
-        let err2 = validate_name("btop ").unwrap_err();
+        let err2 = validate_name("info.name", "btop ").unwrap_err();
         assert!(matches!(
             err2,
             PackageError::Field(FieldError::Whitespace("info.name"))
@@ -206,31 +223,31 @@ mod tests {
     #[test]
     fn test_validate_name_too_long() {
         let too_long = "a".repeat(MAX_NAME_LEN + 1);
-        let err = validate_name(&too_long).unwrap_err();
+        let err = validate_name("info.name", &too_long).unwrap_err();
         assert!(matches!(err, PackageError::InvalidName(NameError::TooLong)));
     }
 
     #[test]
     fn test_validate_name_invalid_chars() {
-        let err_dot = validate_name("btop.tar").unwrap_err();
+        let err_dot = validate_name("info.name", "btop.tar").unwrap_err();
         assert!(matches!(
             err_dot,
             PackageError::InvalidName(NameError::InvalidChar('.'))
         ));
 
-        let err_at = validate_name("btop@1").unwrap_err();
+        let err_at = validate_name("info.name", "btop@1").unwrap_err();
         assert!(matches!(
             err_at,
             PackageError::InvalidName(NameError::InvalidChar('@'))
         ));
 
-        let err_slash = validate_name("btop/core").unwrap_err();
+        let err_slash = validate_name("info.name", "btop/core").unwrap_err();
         assert!(matches!(
             err_slash,
             PackageError::InvalidName(NameError::InvalidChar('/'))
         ));
 
-        let err_space = validate_name("btop core").unwrap_err();
+        let err_space = validate_name("info.name", "btop core").unwrap_err();
         assert!(matches!(
             err_space,
             PackageError::InvalidName(NameError::InvalidChar(' '))
@@ -239,13 +256,13 @@ mod tests {
 
     #[test]
     fn test_validate_name_invalid_start_char() {
-        let err_dash = validate_name("-btop").unwrap_err();
+        let err_dash = validate_name("info.name", "-btop").unwrap_err();
         assert!(matches!(
             err_dash,
             PackageError::InvalidName(NameError::InvalidStartChar('-'))
         ));
 
-        let err_under = validate_name("_btop").unwrap_err();
+        let err_under = validate_name("info.name", "_btop").unwrap_err();
         assert!(matches!(
             err_under,
             PackageError::InvalidName(NameError::InvalidStartChar('_'))
