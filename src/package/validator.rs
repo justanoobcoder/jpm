@@ -1,21 +1,34 @@
-use super::error::{FieldError, MAX_NAME_LEN, NameError, PackageError};
+use super::error::{FieldError, NameError, PackageError};
 use super::model::Package;
 
-pub fn validate_text(field: &'static str, value: &str) -> Result<(), FieldError> {
+pub const MAX_NAME_LEN: usize = 64;
+
+fn validate_text(field: &'static str, value: &str) -> Result<(), PackageError> {
     if value.is_empty() {
-        return Err(FieldError::Empty(field));
+        return Err(FieldError::Empty(field).into());
     }
     if value != value.trim() {
-        return Err(FieldError::Whitespace(field));
+        return Err(FieldError::Whitespace(field).into());
     }
     Ok(())
 }
 
-pub fn validate_name(name: &str) -> Result<(), PackageError> {
+fn validate_name(name: &str) -> Result<(), PackageError> {
     validate_text("info.name", name)?;
 
+    if let Some(c) = name
+        .chars()
+        .find(|&c| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+    {
+        return Err(NameError::InvalidChar(c).into());
+    }
     if name.len() > MAX_NAME_LEN {
         return Err(NameError::TooLong.into());
+    }
+    if let Some(c) = name.chars().next() {
+        if c == '_' || c == '-' {
+            return Err(NameError::InvalidStartChar(c).into());
+        }
     }
     Ok(())
 }

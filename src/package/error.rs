@@ -1,6 +1,5 @@
+use super::validator::MAX_NAME_LEN;
 use thiserror::Error;
-
-pub const MAX_NAME_LEN: usize = 64;
 
 #[derive(Error, Debug)]
 pub enum FieldError {
@@ -12,8 +11,12 @@ pub enum FieldError {
 
 #[derive(Error, Debug)]
 pub enum NameError {
-    #[error("package name is too long (max {MAX_NAME_LEN} characters)")]
+    #[error("too long (max {MAX_NAME_LEN} characters)")]
     TooLong,
+    #[error("invalid character `{0}` in name (allowed: a-z, A-Z, 0-9, `-`, `_`)")]
+    InvalidChar(char),
+    #[error("must not start with `{0}`")]
+    InvalidStartChar(char),
 }
 
 #[derive(Error, Debug)]
@@ -21,7 +24,7 @@ pub enum PackageError {
     #[error("Failed to parse manifest:\n{0}")]
     Parse(#[from] toml::de::Error),
 
-    #[error(transparent)]
+    #[error("Invalid field value: {0}")]
     Field(#[from] FieldError),
 
     #[error("Invalid package name: {0}")]
