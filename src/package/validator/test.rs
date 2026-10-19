@@ -1,5 +1,5 @@
 use super::*;
-use crate::package::model::{Build, BuildSystem, Dependency, Info, Package};
+use crate::package::model::{Build, BuildSystem, Dependency, Hook, Info, Package};
 
 fn sample_package() -> Package {
     Package {
@@ -544,4 +544,124 @@ fn test_validate_package_dependencies() {
         validate_package(&pkg_optional_err).unwrap_err(),
         PackageError::InvalidName(NameError::InvalidStartChar('-'))
     ));
+}
+
+#[test]
+fn test_validate_patch_empty() {
+    let patches = vec![];
+    assert!(validate_patch("hook.patches", &patches).is_ok());
+}
+
+#[test]
+fn test_validate_patch_valid() {
+    let patches = vec!["fix.patch".to_string(), "0001-fix-build.patch".to_string()];
+    assert!(validate_patch("hook.patches", &patches).is_ok());
+}
+
+#[test]
+fn test_validate_patch_empty_item() {
+    let patches = vec!["".to_string()];
+    let err = validate_patch("hook.patches", &patches).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::Field(FieldError::Empty("hook.patches"))
+    ));
+}
+
+#[test]
+fn test_validate_patch_whitespace_item() {
+    let patches_leading = vec![" fix.patch".to_string()];
+    let err_leading = validate_patch("hook.patches", &patches_leading).unwrap_err();
+    assert!(matches!(
+        err_leading,
+        PackageError::Field(FieldError::Whitespace("hook.patches"))
+    ));
+
+    let patches_trailing = vec!["fix.patch ".to_string()];
+    let err_trailing = validate_patch("hook.patches", &patches_trailing).unwrap_err();
+    assert!(matches!(
+        err_trailing,
+        PackageError::Field(FieldError::Whitespace("hook.patches"))
+    ));
+}
+
+#[test]
+fn test_validate_package_hooks_valid() {
+    let mut pkg = sample_package();
+    pkg.hook = Some(Hook {
+        patches: vec!["fix.patch".to_string()],
+        pre_configure: Some("sed -i 's/a/b/' Makefile".to_string()),
+        pre_install: Some("mkdir -p $DESTDIR".to_string()),
+        post_install: Some("ldconfig".to_string()),
+        pre_remove: Some("echo removing".to_string()),
+        post_remove: Some("echo removed".to_string()),
+    });
+    assert!(validate_package(&pkg).is_ok());
+}
+
+#[test]
+fn test_validate_package_hooks_empty_fields() {
+    let mut pkg = sample_package();
+    pkg.hook = Some(Hook {
+        pre_configure: Some(String::new()),
+        ..Default::default()
+    });
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("hook.pre_configure"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.hook = Some(Hook {
+        pre_install: Some(String::new()),
+        ..Default::default()
+    });
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("hook.pre_install"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.hook = Some(Hook {
+        post_install: Some(String::new()),
+        ..Default::default()
+    });
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("hook.post_install"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.hook = Some(Hook {
+        pre_remove: Some(String::new()),
+        ..Default::default()
+    });
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("hook.pre_remove"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.hook = Some(Hook {
+        post_remove: Some(String::new()),
+        ..Default::default()
+    });
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("hook.post_remove"))
+    ));
+}
+
+#[test]
+fn test_validate_package_hooks_multiline_script() {
+    let mut pkg = sample_package();
+    pkg.hook = Some(Hook {
+        patches: vec![],
+        pre_configure: Some("\n  sed -i 's/a/b/' Makefile\n".to_string()),
+        pre_install: None,
+        post_install: None,
+        pre_remove: None,
+        post_remove: None,
+    });
+    assert!(validate_package(&pkg).is_ok());
 }

@@ -622,3 +622,75 @@ runtime = ["{long_dep}"]
         "Invalid package name: too long (max 64 characters)"
     );
 }
+
+#[test]
+fn test_parse_hook_valid_sections() {
+    let toml = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[hook]
+patches = ["0001-fix.patch", "security.patch"]
+pre_configure = "sed -i 's/a/b/' Makefile"
+pre_install = "mkdir -p $DESTDIR"
+post_install = "ldconfig"
+pre_remove = "echo removing"
+post_remove = "echo removed"
+"#
+    );
+    let pkg = parse(&toml).expect("valid hooks should parse successfully");
+    let hook = pkg.hook.expect("hook should be Some");
+    assert_eq!(hook.patches, vec!["0001-fix.patch", "security.patch"]);
+    assert_eq!(
+        hook.pre_configure.as_deref(),
+        Some("sed -i 's/a/b/' Makefile")
+    );
+    assert_eq!(hook.pre_install.as_deref(), Some("mkdir -p $DESTDIR"));
+    assert_eq!(hook.post_install.as_deref(), Some("ldconfig"));
+    assert_eq!(hook.pre_remove.as_deref(), Some("echo removing"));
+    assert_eq!(hook.post_remove.as_deref(), Some("echo removed"));
+}
+
+#[test]
+fn test_parse_hook_validation_errors() {
+    let toml_empty_patch = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[hook]
+patches = ["fix.patch", ""]
+"#
+    );
+    assert_eq!(
+        parse(&toml_empty_patch).unwrap_err().to_string(),
+        "Invalid field value: `hook.patches` must not be empty"
+    );
+
+    let toml_ws_patch = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[hook]
+patches = [" fix.patch"]
+"#
+    );
+    assert_eq!(
+        parse(&toml_ws_patch).unwrap_err().to_string(),
+        "Invalid field value: `hook.patches` must not have leading or trailing whitespace"
+    );
+
+    let empty_fields = [
+        ("pre_configure", "hook.pre_configure"),
+        ("pre_install", "hook.pre_install"),
+        ("post_install", "hook.post_install"),
+        ("pre_remove", "hook.pre_remove"),
+        ("post_remove", "hook.post_remove"),
+    ];
+
+    for (field_name, expected_err_field) in empty_fields {
+        let toml_empty_field = format!(
+            r#"{VALID_MINIMAL_MANIFEST}
+[hook]
+{field_name} = ""
+"#
+        );
+        assert_eq!(
+            parse(&toml_empty_field).unwrap_err().to_string(),
+            format!("Invalid field value: `{expected_err_field}` must not be empty")
+        );
+    }
+}
