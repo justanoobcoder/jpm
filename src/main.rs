@@ -1,3 +1,6 @@
+use clap::Parser;
+use jpm::cli;
+
 fn main() {
-    println!("Hello, world!");
+    let _cli = cli::Cli::parse();
 }
