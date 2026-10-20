@@ -587,6 +587,116 @@ fn test_validate_patch_whitespace_item() {
 }
 
 #[test]
+fn test_validate_patch_path_valid() {
+    assert!(validate_patch_path("fix.patch").is_ok());
+    assert!(validate_patch_path("0001-fix-build.patch").is_ok());
+    assert!(validate_patch_path("security.patch").is_ok());
+    assert!(validate_patch_path("patches/fix.patch").is_ok());
+    assert!(validate_patch_path("series/0001-fix.patch").is_ok());
+}
+
+#[test]
+fn test_validate_patch_path_absolute() {
+    let cases = [
+        "/etc/passwd",
+        "/absolute/path/to.patch",
+        "//double-slash.patch",
+    ];
+    for case in cases {
+        assert!(
+            matches!(
+                validate_patch_path(case).unwrap_err(),
+                PackageError::Field(FieldError::Invalid(
+                    "hook.patches",
+                    "must not be an absolute path"
+                ))
+            ),
+            "expected absolute path error for: {case}"
+        );
+    }
+}
+
+#[test]
+fn test_validate_patch_path_traversal() {
+    let cases = [
+        "../evil.patch",
+        "../../etc/cron.d/evil",
+        "patches/../../etc/passwd",
+        "foo/../../../etc/shadow",
+    ];
+    for case in cases {
+        assert!(
+            matches!(
+                validate_patch_path(case).unwrap_err(),
+                PackageError::Field(FieldError::Invalid(
+                    "hook.patches",
+                    "must not contain path traversal"
+                ))
+            ),
+            "expected path traversal error for: {case}"
+        );
+    }
+}
+
+#[test]
+fn test_validate_patch_path_tilde() {
+    let cases = ["~/evil.patch", "~/.ssh/authorized_keys", "~root/evil.patch"];
+    for case in cases {
+        assert!(
+            matches!(
+                validate_patch_path(case).unwrap_err(),
+                PackageError::Field(FieldError::Invalid(
+                    "hook.patches",
+                    "must not start with `~`"
+                ))
+            ),
+            "expected tilde error for: {case}"
+        );
+    }
+}
+
+#[test]
+fn test_validate_patch_security_via_package() {
+    let mut pkg = sample_package();
+
+    pkg.hook = Some(Hook {
+        patches: vec!["../../../etc/shadow".to_string()],
+        ..Default::default()
+    });
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Invalid(
+            "hook.patches",
+            "must not contain path traversal"
+        ))
+    ));
+
+    pkg.hook = Some(Hook {
+        patches: vec!["/etc/passwd".to_string()],
+        ..Default::default()
+    });
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Invalid(
+            "hook.patches",
+            "must not be an absolute path"
+        ))
+    ));
+
+    pkg.hook = Some(Hook {
+        patches: vec!["~/.ssh/authorized_keys".to_string()],
+        ..Default::default()
+    });
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Invalid(
+            "hook.patches",
+            "must not start with `~`"
+        ))
+    ));
+}
+
+#[test]
 fn test_validate_package_hooks_valid() {
     let mut pkg = sample_package();
     pkg.hook = Some(Hook {

@@ -733,6 +733,75 @@ patches = [" fix.patch"]
 }
 
 #[test]
+fn test_parse_patch_path_security() {
+    // Path traversal
+    let traversal_cases = [
+        r#"patches = ["../evil.patch"]"#,
+        r#"patches = ["../../etc/cron.d/evil"]"#,
+        r#"patches = ["patches/../../etc/passwd"]"#,
+        r#"patches = ["fix.patch", "../escape.patch"]"#,
+    ];
+    for patches_toml in traversal_cases {
+        let toml = format!(
+            r#"{VALID_MINIMAL_MANIFEST}
+[hook]
+{patches_toml}
+"#
+        );
+        assert_eq!(
+            parse(&toml).unwrap_err().to_string(),
+            "Invalid field value: `hook.patches` has an invalid value: must not contain path traversal",
+            "expected traversal error for: {patches_toml}"
+        );
+    }
+
+    // Absolute paths
+    let absolute_cases = [
+        r#"patches = ["/etc/passwd"]"#,
+        r#"patches = ["/absolute/path/to.patch"]"#,
+    ];
+    for patches_toml in absolute_cases {
+        let toml = format!(
+            r#"{VALID_MINIMAL_MANIFEST}
+[hook]
+{patches_toml}
+"#
+        );
+        assert_eq!(
+            parse(&toml).unwrap_err().to_string(),
+            "Invalid field value: `hook.patches` has an invalid value: must not be an absolute path",
+            "expected absolute path error for: {patches_toml}"
+        );
+    }
+
+    let tilde_cases = [
+        r#"patches = ["~/evil.patch"]"#,
+        r#"patches = ["~root/evil.patch"]"#,
+    ];
+    for patches_toml in tilde_cases {
+        let toml = format!(
+            r#"{VALID_MINIMAL_MANIFEST}
+[hook]
+{patches_toml}
+"#
+        );
+        assert_eq!(
+            parse(&toml).unwrap_err().to_string(),
+            "Invalid field value: `hook.patches` has an invalid value: must not start with `~`",
+            "expected tilde error for: {patches_toml}"
+        );
+    }
+
+    let valid_toml = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[hook]
+patches = ["fix.patch", "0001-fix-build.patch", "series/security.patch"]
+"#
+    );
+    assert!(parse(&valid_toml).is_ok());
+}
+
+#[test]
 fn test_parse_build_valid_sections() {
     // Autotools
     let toml_autotools = VALID_MINIMAL_MANIFEST.replace(
