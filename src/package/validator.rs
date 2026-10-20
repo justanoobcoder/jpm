@@ -73,9 +73,6 @@ fn validate_hash(hash: &str) -> Result<(), PackageError> {
 }
 
 fn validate_dependency(field: &'static str, deps: &Vec<String>) -> Result<(), PackageError> {
-    if deps.is_empty() {
-        return Ok(());
-    }
     for dep in deps {
         validate_name(field, dep)?;
     }
@@ -84,9 +81,6 @@ fn validate_dependency(field: &'static str, deps: &Vec<String>) -> Result<(), Pa
 }
 
 fn validate_patch(field: &'static str, patches: &Vec<String>) -> Result<(), PackageError> {
-    if patches.is_empty() {
-        return Ok(());
-    }
     for p in patches {
         validate_text(field, p)?;
     }
