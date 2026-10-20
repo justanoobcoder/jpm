@@ -11,7 +11,10 @@ fn temp_repo_dir(label: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let dir = std::env::temp_dir().join(format!("jpm_repo_integration_{label}_{}_{nanos}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!(
+        "jpm_repo_integration_{label}_{}_{nanos}",
+        std::process::id()
+    ));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
@@ -122,7 +125,10 @@ fn test_integration_package_parse_error() {
         RepoError::Package { name, path, .. } => {
             assert_eq!(name, "broken");
             assert_eq!(path, &broken_file);
-            assert!(err.to_string().starts_with("failed to parse package `broken`"));
+            assert!(
+                err.to_string()
+                    .starts_with("failed to parse package `broken`")
+            );
         }
         other => panic!("expected Package error, got: {other:?}"),
     }
@@ -142,7 +148,11 @@ fn test_integration_name_mismatch_error() {
 
     let err = repo.get("nano").unwrap_err();
     match &err {
-        RepoError::NameMismatch { expected, found, path } => {
+        RepoError::NameMismatch {
+            expected,
+            found,
+            path,
+        } => {
             assert_eq!(expected, "nano");
             assert_eq!(found, "btop");
             assert_eq!(path, &nano_file);
