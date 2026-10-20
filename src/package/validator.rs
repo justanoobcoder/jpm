@@ -136,6 +136,10 @@ pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
     validate_text("info.src", &info.src)?;
     validate_hash(&info.hash)?;
 
+    if info.pkgrel == 0 {
+        return Err(FieldError::Invalid("info.pkgrel", "must not be 0").into());
+    }
+
     if let Some(url) = &info.url {
         validate_text("info.url", url)?;
     }
