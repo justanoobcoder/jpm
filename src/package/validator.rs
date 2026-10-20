@@ -191,6 +191,7 @@ pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
         validate_dependency("dependency.build", &dep.build)?;
         validate_dependency("dependency.runtime", &dep.runtime)?;
         validate_dependency("dependency.optional", &dep.optional)?;
+        validate_dependency("dependency.conflicts", &dep.conflicts)?;
     }
 
     if let Some(hook) = &pkg.hook {
