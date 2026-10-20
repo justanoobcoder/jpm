@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Package {
     pub info: Info,
     pub dependency: Option<Dependency>,
@@ -12,7 +12,7 @@ pub struct Package {
     pub build: Build,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Info {
     pub name: String,
     pub pkgver: String,
@@ -25,7 +25,7 @@ pub struct Info {
     pub src_dir: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Dependency {
     #[serde(default)]
     pub build: Vec<String>,
@@ -37,7 +37,7 @@ pub struct Dependency {
     pub conflicts: Vec<String>,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Hook {
     #[serde(default)]
     pub patches: Vec<String>,
@@ -48,7 +48,7 @@ pub struct Hook {
     pub post_remove: Option<String>,
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum BuildSystem {
     Autotools,
@@ -58,7 +58,7 @@ pub enum BuildSystem {
     Custom,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Build {
     pub system: BuildSystem,
     pub configure: Option<String>,
