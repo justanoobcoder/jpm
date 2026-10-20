@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::package::Build;
 
-use super::error::{FieldError, HashError, NameError, PackageError};
+use super::error::{EnvError, FieldError, HashError, NameError, PackageError};
 use super::model::{BuildSystem, Package};
 
 pub const MAX_NAME_LEN: usize = 64;
@@ -79,6 +79,20 @@ fn validate_dependency(field: &'static str, deps: &Vec<String>) -> Result<(), Pa
         validate_name(field, dep)?;
     }
 
+    Ok(())
+}
+
+fn validate_env_key(key: &str) -> Result<(), PackageError> {
+    validate_text("env", key)?;
+
+    let mut chars = key.chars();
+    let first = chars.next().unwrap();
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return Err(EnvError::InvalidStartChar(first).into());
+    }
+    if let Some(c) = chars.find(|c| !(c.is_ascii_alphanumeric() || *c == '_')) {
+        return Err(EnvError::InvalidChar(c).into());
+    }
     Ok(())
 }
 
@@ -167,6 +181,10 @@ pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
     }
     if let Some(dir) = &info.src_dir {
         validate_text("info.src_dir", dir)?;
+    }
+
+    for key in pkg.env.keys() {
+        validate_env_key(key)?;
     }
 
     if let Some(dep) = &pkg.dependency {

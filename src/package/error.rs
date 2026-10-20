@@ -41,6 +41,14 @@ pub enum HashError {
     BadFormat(String),
 }
 
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum EnvError {
+    #[error("invalid character `{0}` in env name")]
+    InvalidChar(char),
+    #[error("env name must not start with `{0}`")]
+    InvalidStartChar(char),
+}
+
 #[derive(Error, Debug)]
 pub enum PackageError {
     #[error("Failed to parse manifest:\n{0}")]
@@ -54,4 +62,7 @@ pub enum PackageError {
 
     #[error("Invalid hash: {0}")]
     InvalidHash(#[from] HashError),
+
+    #[error("Invalid env: {0}")]
+    InvalidEnv(#[from] EnvError),
 }
