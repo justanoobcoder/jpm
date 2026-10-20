@@ -32,7 +32,7 @@ runtime = ["glibc"]
 optional = ["rocm"]
 
 [build]
-system = "make"
+system = "autotools"
 configure = "./configure --prefix=/usr"
 compile = "make -j$(nproc)"
 install = "make DESTDIR=$DESTDIR PREFIX=/usr install"
@@ -102,7 +102,7 @@ fn test_parse_full_manifest() {
     assert_eq!(dep.runtime, vec!["glibc"]);
     assert_eq!(dep.optional, vec!["rocm"]);
 
-    assert_eq!(pkg.build.system, BuildSystem::Make);
+    assert_eq!(pkg.build.system, BuildSystem::Autotools);
     assert_eq!(
         pkg.build.configure.as_deref(),
         Some("./configure --prefix=/usr")
@@ -147,6 +147,7 @@ hash = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 [build]
 system = "{name}"
+install = "install.sh"
 "#
         );
         let pkg =
@@ -426,6 +427,24 @@ fn test_error_display() {
         "`info.desc` must not have leading or trailing whitespace"
     );
 
+    let missing_err = FieldError::Missing("build.install");
+    assert_eq!(missing_err.to_string(), "`build.install` is required");
+
+    let forbidden_err = FieldError::Forbidden("build.configure");
+    assert_eq!(
+        forbidden_err.to_string(),
+        "`build.configure` is not allowed here"
+    );
+
+    let invalid_err = FieldError::Invalid(
+        "build.out_of_src",
+        "meson does not support in-source builds",
+    );
+    assert_eq!(
+        invalid_err.to_string(),
+        "`build.out_of_src` has an invalid value: meson does not support in-source builds"
+    );
+
     let too_long_err = NameError::TooLong;
     assert_eq!(too_long_err.to_string(), "too long (max 64 characters)");
 
@@ -442,6 +461,24 @@ fn test_error_display() {
     assert_eq!(
         pkg_field_err.to_string(),
         "Invalid field value: `info.name` must not be empty"
+    );
+
+    let pkg_missing_err = PackageError::Field(missing_err);
+    assert_eq!(
+        pkg_missing_err.to_string(),
+        "Invalid field value: `build.install` is required"
+    );
+
+    let pkg_forbidden_err = PackageError::Field(forbidden_err);
+    assert_eq!(
+        pkg_forbidden_err.to_string(),
+        "Invalid field value: `build.configure` is not allowed here"
+    );
+
+    let pkg_invalid_err = PackageError::Field(invalid_err);
+    assert_eq!(
+        pkg_invalid_err.to_string(),
+        "Invalid field value: `build.out_of_src` has an invalid value: meson does not support in-source builds"
     );
 
     let pkg_name_err = PackageError::InvalidName(invalid_start_err);
@@ -693,4 +730,164 @@ patches = [" fix.patch"]
             format!("Invalid field value: `{expected_err_field}` must not be empty")
         );
     }
+}
+
+#[test]
+fn test_parse_build_valid_sections() {
+    // Autotools
+    let toml_autotools = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "autotools"
+configure = "./configure --prefix=/usr"
+compile = "make -j$(nproc)"
+install = "make install"
+out_of_src = true"#,
+    );
+    let pkg = parse(&toml_autotools).expect("valid autotools build should parse");
+    assert_eq!(pkg.build.system, BuildSystem::Autotools);
+    assert_eq!(
+        pkg.build.configure.as_deref(),
+        Some("./configure --prefix=/usr")
+    );
+    assert_eq!(pkg.build.compile.as_deref(), Some("make -j$(nproc)"));
+    assert_eq!(pkg.build.install.as_deref(), Some("make install"));
+    assert_eq!(pkg.build.out_of_src, Some(true));
+
+    // CMake
+    let toml_cmake = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "cmake"
+configure = "cmake -B build"
+compile = "cmake --build build"
+install = "cmake --install build"
+out_of_src = true"#,
+    );
+    let pkg = parse(&toml_cmake).expect("valid cmake build should parse");
+    assert_eq!(pkg.build.system, BuildSystem::Cmake);
+
+    // Make (without configure)
+    let toml_make = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "make"
+compile = "make"
+install = "make install""#,
+    );
+    let pkg = parse(&toml_make).expect("valid make build should parse");
+    assert_eq!(pkg.build.system, BuildSystem::Make);
+    assert_eq!(pkg.build.configure, None);
+
+    // Meson (out_of_src = true or omitted)
+    let toml_meson = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "meson"
+out_of_src = true"#,
+    );
+    let pkg = parse(&toml_meson).expect("valid meson build should parse");
+    assert_eq!(pkg.build.system, BuildSystem::Meson);
+    assert_eq!(pkg.build.out_of_src, Some(true));
+
+    // Custom (with install)
+    let toml_custom = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "custom"
+install = "./install.sh""#,
+    );
+    let pkg = parse(&toml_custom).expect("valid custom build should parse");
+    assert_eq!(pkg.build.system, BuildSystem::Custom);
+    assert_eq!(pkg.build.install.as_deref(), Some("./install.sh"));
+}
+
+#[test]
+fn test_parse_build_validation_errors() {
+    // Make with configure
+    let toml_make_configure = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "make"
+configure = "./configure""#,
+    );
+    let err = parse(&toml_make_configure).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::Field(FieldError::Forbidden("build.configure"))
+    ));
+    assert_eq!(
+        err.to_string(),
+        "Invalid field value: `build.configure` is not allowed here"
+    );
+
+    // Meson with in-source build (out_of_src = false)
+    let toml_meson_in_source = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "meson"
+out_of_src = false"#,
+    );
+    let err = parse(&toml_meson_in_source).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::Field(FieldError::Invalid(
+            "build.out_of_src",
+            "meson does not support in-source builds"
+        ))
+    ));
+    assert_eq!(
+        err.to_string(),
+        "Invalid field value: `build.out_of_src` has an invalid value: meson does not support in-source builds"
+    );
+
+    // Custom without install
+    let toml_custom_no_install = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "custom""#,
+    );
+    let err = parse(&toml_custom_no_install).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::Field(FieldError::Missing("build.install"))
+    ));
+    assert_eq!(
+        err.to_string(),
+        "Invalid field value: `build.install` is required"
+    );
+
+    // Empty fields
+    let toml_empty_configure = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "autotools"
+configure = """#,
+    );
+    assert_eq!(
+        parse(&toml_empty_configure).unwrap_err().to_string(),
+        "Invalid field value: `build.configure` must not be empty"
+    );
+
+    let toml_empty_compile = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "make"
+compile = """#,
+    );
+    assert_eq!(
+        parse(&toml_empty_compile).unwrap_err().to_string(),
+        "Invalid field value: `build.compile` must not be empty"
+    );
+
+    let toml_empty_install = VALID_MINIMAL_MANIFEST.replace(
+        "[build]\nsystem = \"make\"",
+        r#"[build]
+system = "custom"
+install = """#,
+    );
+    assert_eq!(
+        parse(&toml_empty_install).unwrap_err().to_string(),
+        "Invalid field value: `build.install` must not be empty"
+    );
 }

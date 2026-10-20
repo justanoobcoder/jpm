@@ -665,3 +665,247 @@ fn test_validate_package_hooks_multiline_script() {
     });
     assert!(validate_package(&pkg).is_ok());
 }
+
+#[test]
+fn test_validate_build_valid() {
+    let autotools = Build {
+        system: BuildSystem::Autotools,
+        configure: Some("./configure --prefix=/usr".to_string()),
+        compile: Some("make -j$(nproc)".to_string()),
+        install: Some("make install".to_string()),
+        out_of_src: Some(true),
+    };
+    assert!(validate_build(&autotools).is_ok());
+
+    let cmake = Build {
+        system: BuildSystem::Cmake,
+        configure: Some("cmake -B build".to_string()),
+        compile: Some("cmake --build build".to_string()),
+        install: Some("cmake --install build".to_string()),
+        out_of_src: Some(true),
+    };
+    assert!(validate_build(&cmake).is_ok());
+
+    let make = Build {
+        system: BuildSystem::Make,
+        configure: None,
+        compile: Some("make".to_string()),
+        install: Some("make install".to_string()),
+        out_of_src: None,
+    };
+    assert!(validate_build(&make).is_ok());
+
+    let meson = Build {
+        system: BuildSystem::Meson,
+        configure: Some("meson setup build".to_string()),
+        compile: Some("ninja -C build".to_string()),
+        install: Some("ninja -C build install".to_string()),
+        out_of_src: Some(true),
+    };
+    assert!(validate_build(&meson).is_ok());
+
+    let meson_default_out_of_src = Build {
+        system: BuildSystem::Meson,
+        configure: None,
+        compile: None,
+        install: None,
+        out_of_src: None,
+    };
+    assert!(validate_build(&meson_default_out_of_src).is_ok());
+
+    let custom = Build {
+        system: BuildSystem::Custom,
+        configure: None,
+        compile: None,
+        install: Some("./install.sh".to_string()),
+        out_of_src: None,
+    };
+    assert!(validate_build(&custom).is_ok());
+}
+
+#[test]
+fn test_validate_build_make_forbidden_configure() {
+    let build = Build {
+        system: BuildSystem::Make,
+        configure: Some("./configure".to_string()),
+        compile: None,
+        install: None,
+        out_of_src: None,
+    };
+    let err = validate_build(&build).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::Field(FieldError::Forbidden("build.configure"))
+    ));
+}
+
+#[test]
+fn test_validate_build_meson_in_source() {
+    let build = Build {
+        system: BuildSystem::Meson,
+        configure: None,
+        compile: None,
+        install: None,
+        out_of_src: Some(false),
+    };
+    let err = validate_build(&build).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::Field(FieldError::Invalid(
+            "build.out_of_src",
+            "meson does not support in-source builds"
+        ))
+    ));
+}
+
+#[test]
+fn test_validate_build_custom_missing_install() {
+    let build = Build {
+        system: BuildSystem::Custom,
+        configure: None,
+        compile: None,
+        install: None,
+        out_of_src: None,
+    };
+    let err = validate_build(&build).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::Field(FieldError::Missing("build.install"))
+    ));
+}
+
+#[test]
+fn test_validate_build_empty_fields() {
+    let build_empty_configure = Build {
+        system: BuildSystem::Autotools,
+        configure: Some(String::new()),
+        compile: None,
+        install: None,
+        out_of_src: None,
+    };
+    assert!(matches!(
+        validate_build(&build_empty_configure).unwrap_err(),
+        PackageError::Field(FieldError::Empty("build.configure"))
+    ));
+
+    let build_empty_compile = Build {
+        system: BuildSystem::Make,
+        configure: None,
+        compile: Some(String::new()),
+        install: None,
+        out_of_src: None,
+    };
+    assert!(matches!(
+        validate_build(&build_empty_compile).unwrap_err(),
+        PackageError::Field(FieldError::Empty("build.compile"))
+    ));
+
+    let build_empty_install = Build {
+        system: BuildSystem::Custom,
+        configure: None,
+        compile: None,
+        install: Some(String::new()),
+        out_of_src: None,
+    };
+    assert!(matches!(
+        validate_build(&build_empty_install).unwrap_err(),
+        PackageError::Field(FieldError::Empty("build.install"))
+    ));
+}
+
+#[test]
+fn test_validate_package_build_valid() {
+    let mut pkg = sample_package();
+    pkg.build = Build {
+        system: BuildSystem::Autotools,
+        configure: Some("./configure".to_string()),
+        compile: Some("make".to_string()),
+        install: Some("make install".to_string()),
+        out_of_src: Some(false),
+    };
+    assert!(validate_package(&pkg).is_ok());
+}
+
+#[test]
+fn test_validate_package_build_errors() {
+    let mut pkg = sample_package();
+    pkg.build = Build {
+        system: BuildSystem::Make,
+        configure: Some("./configure".to_string()),
+        compile: None,
+        install: None,
+        out_of_src: None,
+    };
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Forbidden("build.configure"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.build = Build {
+        system: BuildSystem::Meson,
+        configure: None,
+        compile: None,
+        install: None,
+        out_of_src: Some(false),
+    };
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Invalid(
+            "build.out_of_src",
+            "meson does not support in-source builds"
+        ))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.build = Build {
+        system: BuildSystem::Custom,
+        configure: None,
+        compile: None,
+        install: None,
+        out_of_src: None,
+    };
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Missing("build.install"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.build = Build {
+        system: BuildSystem::Cmake,
+        configure: Some(String::new()),
+        compile: None,
+        install: None,
+        out_of_src: None,
+    };
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("build.configure"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.build = Build {
+        system: BuildSystem::Cmake,
+        configure: None,
+        compile: Some(String::new()),
+        install: None,
+        out_of_src: None,
+    };
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("build.compile"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.build = Build {
+        system: BuildSystem::Cmake,
+        configure: None,
+        compile: None,
+        install: Some(String::new()),
+        out_of_src: None,
+    };
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("build.install"))
+    ));
+}
