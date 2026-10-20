@@ -38,26 +38,30 @@ install = "make install"
 "#;
 
 #[test]
-fn test_integration_read_real_repo_btop() {
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let repo = Repo::new(PathBuf::from(manifest_dir).join("pkgs"));
+fn test_integration_repo_get_valid_package() {
+    let temp = temp_repo_dir("valid_pkg");
+    let pkgs_dir = temp.join("pkgs");
+    let repo = Repo::new(&pkgs_dir);
 
-    let pkg = repo.get("btop").expect("real btop package should parse");
-    assert_eq!(pkg.info.name, "btop");
-    assert_eq!(pkg.info.pkgver, "1.4.7");
+    let pkg_file = repo.package_path("nano");
+    fs::create_dir_all(pkg_file.parent().unwrap()).unwrap();
+    fs::write(&pkg_file, SAMPLE_MANIFEST).unwrap();
+
+    let pkg = repo.get("nano").expect("valid package should parse");
+    assert_eq!(pkg.info.name, "nano");
+    assert_eq!(pkg.info.pkgver, "8.1");
     assert_eq!(pkg.info.pkgrel, 1);
-    assert_eq!(pkg.info.desc, "A TUI monitor of resources");
-    assert_eq!(pkg.info.license, "none");
+    assert_eq!(pkg.info.desc, "Small, friendly text editor");
+    assert_eq!(pkg.info.license, "GPL-3.0-or-later");
+    assert_eq!(pkg.build.system, BuildSystem::Autotools);
     assert_eq!(
-        pkg.info.url.as_deref(),
-        Some("https://github.com/aristocratos/btop")
+        pkg.build.configure.as_deref(),
+        Some("./configure --prefix=/usr")
     );
-    assert_eq!(pkg.build.system, BuildSystem::Make);
-    assert_eq!(
-        pkg.build.install.as_deref(),
-        Some("make DESTDIR=$DESTDIR PREFIX=/usr install")
-    );
-    assert!(pkg.hook.is_some());
+    assert_eq!(pkg.build.compile.as_deref(), Some("make"));
+    assert_eq!(pkg.build.install.as_deref(), Some("make install"));
+
+    let _ = fs::remove_dir_all(&temp);
 }
 
 #[test]
@@ -94,8 +98,8 @@ fn test_integration_env_var_override() {
 
 #[test]
 fn test_integration_package_not_found() {
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let repo = Repo::new(PathBuf::from(manifest_dir).join("pkgs"));
+    let temp = temp_repo_dir("not_found");
+    let repo = Repo::new(temp.join("pkgs"));
 
     let err = repo.get("nonexistent_package").unwrap_err();
     match &err {
@@ -109,6 +113,8 @@ fn test_integration_package_not_found() {
         }
         other => panic!("expected NotFound, got: {other:?}"),
     }
+
+    let _ = fs::remove_dir_all(&temp);
 }
 
 #[test]
