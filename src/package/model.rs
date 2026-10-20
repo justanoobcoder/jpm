@@ -33,6 +33,8 @@ pub struct Dependency {
     pub runtime: Vec<String>,
     #[serde(default)]
     pub optional: Vec<String>,
+    #[serde(default)]
+    pub conflicts: Vec<String>,
 }
 
 #[derive(Deserialize, Debug, Default)]
