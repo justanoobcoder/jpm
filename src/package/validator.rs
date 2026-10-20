@@ -63,7 +63,7 @@ fn validate_hash(hash: &str) -> Result<(), PackageError> {
     if digest.len() != expected_len {
         return Err(HashError::BadLength {
             algo: algo.to_string(),
-            expected_len: expected_len,
+            expected_len,
             got_len: digest.len(),
         }
         .into());
