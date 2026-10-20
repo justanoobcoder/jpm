@@ -74,7 +74,7 @@ fn validate_hash(hash: &str) -> Result<(), PackageError> {
     Ok(())
 }
 
-fn validate_dependency(field: &'static str, deps: &Vec<String>) -> Result<(), PackageError> {
+fn validate_dependency(field: &'static str, deps: &[String]) -> Result<(), PackageError> {
     for dep in deps {
         validate_name(field, dep)?;
     }
@@ -115,7 +115,7 @@ fn validate_patch_path(patch: &str) -> Result<(), PackageError> {
     Ok(())
 }
 
-fn validate_patch(field: &'static str, patches: &Vec<String>) -> Result<(), PackageError> {
+fn validate_patch(field: &'static str, patches: &[String]) -> Result<(), PackageError> {
     for p in patches {
         validate_text(field, p)?;
         validate_patch_path(p)?;
