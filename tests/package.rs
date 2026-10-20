@@ -1,4 +1,4 @@
-use jpm::package::{BuildSystem, FieldError, NameError, PackageError, parse};
+use jpm::package::{BuildSystem, FieldError, HashError, NameError, PackageError, parse};
 
 const VALID_MINIMAL_MANIFEST: &str = r#"
 [info]
@@ -487,7 +487,7 @@ fn test_error_display() {
         "Invalid package name: must not start with `-`"
     );
 
-    let pkg_hash_err = PackageError::InvalidHash("hash must contain hex characters only".into());
+    let pkg_hash_err = PackageError::InvalidHash(HashError::NotHex);
     assert_eq!(
         pkg_hash_err.to_string(),
         "Invalid hash: hash must contain hex characters only"

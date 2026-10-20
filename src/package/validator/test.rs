@@ -1,4 +1,5 @@
 use super::*;
+use crate::package::error::HashError;
 use crate::package::model::{Build, BuildSystem, Dependency, Hook, Info, Package};
 
 fn sample_package() -> Package {
@@ -332,14 +333,14 @@ fn test_validate_hash_missing_colon() {
     let err = validate_hash("sha256").unwrap_err();
     assert!(matches!(
         err,
-        PackageError::InvalidHash(msg) if msg == "expected `algo:hash`, got `sha256`"
+        PackageError::InvalidHash(HashError::BadFormat(ref s)) if s == "sha256"
     ));
 
     let err_raw = validate_hash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
         .unwrap_err();
     assert!(matches!(
         err_raw,
-        PackageError::InvalidHash(msg) if msg.contains("expected `algo:hash`")
+        PackageError::InvalidHash(HashError::BadFormat(_))
     ));
 }
 
@@ -348,13 +349,13 @@ fn test_validate_hash_unsupported_algorithm() {
     let err_sha512 = validate_hash("sha512:1234").unwrap_err();
     assert!(matches!(
         err_sha512,
-        PackageError::InvalidHash(msg) if msg == "unsupported algorithm `sha512` (supported: md5, sha1, sha256)"
+        PackageError::InvalidHash(HashError::UnsupportedAlgo { ref algo, .. }) if algo == "sha512"
     ));
 
     let err_blake3 = validate_hash("blake3:1234").unwrap_err();
     assert!(matches!(
         err_blake3,
-        PackageError::InvalidHash(msg) if msg == "unsupported algorithm `blake3` (supported: md5, sha1, sha256)"
+        PackageError::InvalidHash(HashError::UnsupportedAlgo { ref algo, .. }) if algo == "blake3"
     ));
 }
 
@@ -363,13 +364,13 @@ fn test_validate_hash_non_hex_digest() {
     let err_g = validate_hash("md5:d41d8cd98f00b204e9800998ecf8427g").unwrap_err();
     assert!(matches!(
         err_g,
-        PackageError::InvalidHash(msg) if msg == "hash must contain hex characters only"
+        PackageError::InvalidHash(HashError::NotHex)
     ));
 
     let err_sym = validate_hash("sha1:da39a3ee5e6b4b0d3255bfef95601890afd8070!").unwrap_err();
     assert!(matches!(
         err_sym,
-        PackageError::InvalidHash(msg) if msg == "hash must contain hex characters only"
+        PackageError::InvalidHash(HashError::NotHex)
     ));
 }
 
@@ -378,19 +379,19 @@ fn test_validate_hash_length_mismatch() {
     let err_md5_short = validate_hash("md5:d41d8cd98f00b204e9800998ecf8427").unwrap_err();
     assert!(matches!(
         err_md5_short,
-        PackageError::InvalidHash(msg) if msg == "expected md5 hash length is 32, got 31"
+        PackageError::InvalidHash(HashError::BadLength { ref algo, expected_len: 32, got_len: 31 }) if algo == "md5"
     ));
 
     let err_md5_long = validate_hash("md5:d41d8cd98f00b204e9800998ecf8427ea").unwrap_err();
     assert!(matches!(
         err_md5_long,
-        PackageError::InvalidHash(msg) if msg == "expected md5 hash length is 32, got 33"
+        PackageError::InvalidHash(HashError::BadLength { ref algo, expected_len: 32, got_len: 33 }) if algo == "md5"
     ));
 
     let err_sha1_short = validate_hash("sha1:da39a3ee5e6b4b0d3255bfef95601890afd8070").unwrap_err();
     assert!(matches!(
         err_sha1_short,
-        PackageError::InvalidHash(msg) if msg == "expected sha1 hash length is 40, got 39"
+        PackageError::InvalidHash(HashError::BadLength { ref algo, expected_len: 40, got_len: 39 }) if algo == "sha1"
     ));
 
     let err_sha256_short =
@@ -398,7 +399,7 @@ fn test_validate_hash_length_mismatch() {
             .unwrap_err();
     assert!(matches!(
         err_sha256_short,
-        PackageError::InvalidHash(msg) if msg == "expected sha256 hash length is 64, got 63"
+        PackageError::InvalidHash(HashError::BadLength { ref algo, expected_len: 64, got_len: 63 }) if algo == "sha256"
     ));
 
     let err_sha256_long =
@@ -406,7 +407,7 @@ fn test_validate_hash_length_mismatch() {
             .unwrap_err();
     assert!(matches!(
         err_sha256_long,
-        PackageError::InvalidHash(msg) if msg == "expected sha256 hash length is 64, got 65"
+        PackageError::InvalidHash(HashError::BadLength { ref algo, expected_len: 64, got_len: 65 }) if algo == "sha256"
     ));
 }
 
