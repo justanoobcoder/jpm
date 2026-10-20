@@ -2,7 +2,7 @@ mod error;
 mod model;
 mod validator;
 
-pub use error::{FieldError, NameError, PackageError};
+pub use error::{FieldError, HashError, NameError, PackageError};
 pub use model::{Build, BuildSystem, Dependency, Hook, Info, Package};
 
 pub fn parse(content: &str) -> Result<Package, PackageError> {

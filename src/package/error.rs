@@ -25,6 +25,22 @@ pub enum NameError {
     InvalidStartChar(char),
 }
 
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum HashError {
+    #[error("unsupported algorithm `{algo}` (supported: {supported})")]
+    UnsupportedAlgo { algo: String, supported: String },
+    #[error("expected {algo} hash length is {expected_len}, got {got_len}")]
+    BadLength {
+        algo: String,
+        expected_len: usize,
+        got_len: usize,
+    },
+    #[error("hash must contain hex characters only")]
+    NotHex,
+    #[error("expected `algo:hash`, got `{0}`")]
+    BadFormat(String),
+}
+
 #[derive(Error, Debug)]
 pub enum PackageError {
     #[error("Failed to parse manifest:\n{0}")]
@@ -37,5 +53,5 @@ pub enum PackageError {
     InvalidName(#[from] NameError),
 
     #[error("Invalid hash: {0}")]
-    InvalidHash(String),
+    InvalidHash(#[from] HashError),
 }

@@ -1,6 +1,6 @@
 use crate::package::Build;
 
-use super::error::{FieldError, NameError, PackageError};
+use super::error::{FieldError, HashError, NameError, PackageError};
 use super::model::{BuildSystem, Package};
 
 pub const MAX_NAME_LEN: usize = 64;
@@ -43,30 +43,30 @@ fn validate_hash(hash: &str) -> Result<(), PackageError> {
 
     let (algo, digest) = hash
         .split_once(':')
-        .ok_or_else(|| PackageError::InvalidHash(format!("expected `algo:hash`, got `{hash}`")))?;
+        .ok_or_else(|| HashError::BadFormat(hash.to_string()))?;
 
     let &(_, expected_len) = ALGOS
         .iter()
         .find(|(name, _)| *name == algo)
         .ok_or_else(|| {
             let names: Vec<_> = ALGOS.iter().map(|(n, _)| *n).collect();
-            PackageError::InvalidHash(format!(
-                "unsupported algorithm `{algo}` (supported: {})",
-                names.join(", ")
-            ))
+            HashError::UnsupportedAlgo {
+                algo: algo.to_string(),
+                supported: names.join(", "),
+            }
         })?;
 
     if !digest.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(PackageError::InvalidHash(
-            "hash must contain hex characters only".into(),
-        ));
+        return Err(HashError::NotHex.into());
     }
 
     if digest.len() != expected_len {
-        return Err(PackageError::InvalidHash(format!(
-            "expected {algo} hash length is {expected_len}, got {}",
-            digest.len()
-        )));
+        return Err(HashError::BadLength {
+            algo: algo.to_string(),
+            expected_len: expected_len,
+            got_len: digest.len(),
+        }
+        .into());
     }
 
     Ok(())
