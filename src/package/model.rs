@@ -1,9 +1,13 @@
+use std::collections::BTreeMap;
+
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct Package {
     pub info: Info,
     pub dependency: Option<Dependency>,
+    #[serde(default)]
+    pub env: BTreeMap<String, String>,
     pub hook: Option<Hook>,
     pub build: Build,
 }
