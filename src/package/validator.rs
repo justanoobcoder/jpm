@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::package::Build;
 
 use super::error::{FieldError, HashError, NameError, PackageError};
@@ -80,9 +82,29 @@ fn validate_dependency(field: &'static str, deps: &Vec<String>) -> Result<(), Pa
     Ok(())
 }
 
+fn validate_patch_path(patch: &str) -> Result<(), PackageError> {
+    let path = Path::new(patch);
+    if path.is_absolute() {
+        return Err(FieldError::Invalid("hook.patches", "must not be an absolute path").into());
+    }
+    if path.components().any(|c| {
+        matches!(
+            c,
+            std::path::Component::ParentDir | std::path::Component::Prefix(_)
+        )
+    }) {
+        return Err(FieldError::Invalid("hook.patches", "must not contain path traversal").into());
+    }
+    if patch.starts_with('~') {
+        return Err(FieldError::Invalid("hook.patches", "must not start with `~`").into());
+    }
+    Ok(())
+}
+
 fn validate_patch(field: &'static str, patches: &Vec<String>) -> Result<(), PackageError> {
     for p in patches {
         validate_text(field, p)?;
+        validate_patch_path(p)?;
     }
 
     Ok(())
