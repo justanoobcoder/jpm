@@ -1,5 +1,7 @@
+use crate::package::Build;
+
 use super::error::{FieldError, NameError, PackageError};
-use super::model::Package;
+use super::model::{BuildSystem, Package};
 
 pub const MAX_NAME_LEN: usize = 64;
 const ALGOS: &[(&str, usize)] = &[("md5", 32), ("sha1", 40), ("sha256", 64)];
@@ -92,6 +94,44 @@ fn validate_patch(field: &'static str, patches: &Vec<String>) -> Result<(), Pack
     Ok(())
 }
 
+fn validate_build(build: &Build) -> Result<(), PackageError> {
+    match build.system {
+        BuildSystem::Autotools => {}
+        BuildSystem::Cmake => {}
+        BuildSystem::Make => {
+            if build.configure.is_some() {
+                return Err(FieldError::Forbidden("build.configure").into());
+            }
+        }
+        BuildSystem::Meson => {
+            if build.out_of_src == Some(false) {
+                return Err(FieldError::Invalid(
+                    "build.out_of_src",
+                    "meson does not support in-source builds",
+                )
+                .into());
+            }
+        }
+        BuildSystem::Custom => {
+            if build.install.is_none() {
+                return Err(FieldError::Missing("build.install").into());
+            }
+        }
+    }
+
+    for (name, value) in [
+        ("build.configure", &build.configure),
+        ("build.compile", &build.compile),
+        ("build.install", &build.install),
+    ] {
+        if value.as_ref().is_some_and(|v| v.is_empty()) {
+            return Err(FieldError::Empty(name).into());
+        }
+    }
+
+    Ok(())
+}
+
 pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
     let info = &pkg.info;
 
@@ -132,6 +172,8 @@ pub fn validate_package(pkg: &Package) -> Result<(), PackageError> {
             }
         }
     }
+
+    validate_build(&pkg.build)?;
 
     Ok(())
 }

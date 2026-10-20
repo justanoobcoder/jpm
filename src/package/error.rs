@@ -7,6 +7,12 @@ pub enum FieldError {
     Empty(&'static str),
     #[error("`{0}` must not have leading or trailing whitespace")]
     Whitespace(&'static str),
+    #[error("`{0}` is required")]
+    Missing(&'static str),
+    #[error("`{0}` is not allowed here")]
+    Forbidden(&'static str),
+    #[error("`{0}` has an invalid value: {1}")]
+    Invalid(&'static str, &'static str),
 }
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
