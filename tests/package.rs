@@ -1,4 +1,4 @@
-use jpm::package::{BuildSystem, FieldError, HashError, NameError, PackageError, parse};
+use jpm::package::{BuildSystem, EnvError, FieldError, HashError, NameError, PackageError, parse};
 
 const VALID_MINIMAL_MANIFEST: &str = r#"
 [info]
@@ -492,6 +492,24 @@ fn test_error_display() {
         pkg_hash_err.to_string(),
         "Invalid hash: hash must contain hex characters only"
     );
+
+    let env_invalid_start = EnvError::InvalidStartChar('1');
+    assert_eq!(
+        env_invalid_start.to_string(),
+        "env name must not start with `1`"
+    );
+
+    let env_invalid_char = EnvError::InvalidChar('-');
+    assert_eq!(
+        env_invalid_char.to_string(),
+        "invalid character `-` in env name"
+    );
+
+    let pkg_env_err = PackageError::InvalidEnv(env_invalid_start);
+    assert_eq!(
+        pkg_env_err.to_string(),
+        "Invalid env: env name must not start with `1`"
+    );
 }
 
 #[test]
@@ -958,5 +976,87 @@ install = """#,
     assert_eq!(
         parse(&toml_empty_install).unwrap_err().to_string(),
         "Invalid field value: `build.install` must not be empty"
+    );
+}
+
+#[test]
+fn test_parse_env_valid_sections() {
+    let toml = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[env]
+CC = "clang"
+CFLAGS = "-O3"
+_PRIVATE = "hidden"
+VAR_123 = "val"
+"#
+    );
+    let pkg = parse(&toml).expect("manifest with valid env table should parse");
+    assert_eq!(pkg.env.get("CC").map(String::as_str), Some("clang"));
+    assert_eq!(pkg.env.get("CFLAGS").map(String::as_str), Some("-O3"));
+    assert_eq!(pkg.env.get("_PRIVATE").map(String::as_str), Some("hidden"));
+    assert_eq!(pkg.env.get("VAR_123").map(String::as_str), Some("val"));
+}
+
+#[test]
+fn test_parse_env_validation_errors() {
+    let toml_invalid_start = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[env]
+1VAR = "val"
+"#
+    );
+    let err = parse(&toml_invalid_start).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::InvalidEnv(EnvError::InvalidStartChar('1'))
+    ));
+    assert_eq!(
+        err.to_string(),
+        "Invalid env: env name must not start with `1`"
+    );
+
+    let toml_invalid_char = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[env]
+MY-VAR = "val"
+"#
+    );
+    let err = parse(&toml_invalid_char).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::InvalidEnv(EnvError::InvalidChar('-'))
+    ));
+    assert_eq!(
+        err.to_string(),
+        "Invalid env: invalid character `-` in env name"
+    );
+
+    let toml_empty_key = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[env]
+"" = "val"
+"#
+    );
+    let err = parse(&toml_empty_key).unwrap_err();
+    assert!(matches!(err, PackageError::Field(FieldError::Empty("env"))));
+    assert_eq!(
+        err.to_string(),
+        "Invalid field value: `env` must not be empty"
+    );
+
+    let toml_whitespace_key = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[env]
+" CC " = "val"
+"#
+    );
+    let err = parse(&toml_whitespace_key).unwrap_err();
+    assert!(matches!(
+        err,
+        PackageError::Field(FieldError::Whitespace("env"))
+    ));
+    assert_eq!(
+        err.to_string(),
+        "Invalid field value: `env` must not have leading or trailing whitespace"
     );
 }

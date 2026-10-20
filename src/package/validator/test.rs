@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use super::*;
 use crate::package::error::HashError;
 use crate::package::model::{Build, BuildSystem, Dependency, Hook, Info, Package};
@@ -18,6 +20,7 @@ fn sample_package() -> Package {
             src_dir: Some("btop-1.4.7".to_string()),
         },
         dependency: None,
+        env: BTreeMap::new(),
         hook: None,
         build: Build {
             system: BuildSystem::Make,
@@ -1018,5 +1021,138 @@ fn test_validate_package_build_errors() {
     assert!(matches!(
         validate_package(&pkg).unwrap_err(),
         PackageError::Field(FieldError::Empty("build.install"))
+    ));
+}
+
+#[test]
+fn test_validate_env_key_valid() {
+    assert!(validate_env_key("CC").is_ok());
+    assert!(validate_env_key("CFLAGS").is_ok());
+    assert!(validate_env_key("PATH").is_ok());
+    assert!(validate_env_key("_").is_ok());
+    assert!(validate_env_key("_PRIVATE_VAR").is_ok());
+    assert!(validate_env_key("var123").is_ok());
+    assert!(validate_env_key("A_B_C").is_ok());
+}
+
+#[test]
+fn test_validate_env_key_empty() {
+    let err = validate_env_key("").unwrap_err();
+    assert!(matches!(err, PackageError::Field(FieldError::Empty("env"))));
+}
+
+#[test]
+fn test_validate_env_key_whitespace() {
+    let err_leading = validate_env_key(" CC").unwrap_err();
+    assert!(matches!(
+        err_leading,
+        PackageError::Field(FieldError::Whitespace("env"))
+    ));
+
+    let err_trailing = validate_env_key("CC ").unwrap_err();
+    assert!(matches!(
+        err_trailing,
+        PackageError::Field(FieldError::Whitespace("env"))
+    ));
+
+    let err_tab = validate_env_key("\tCC").unwrap_err();
+    assert!(matches!(
+        err_tab,
+        PackageError::Field(FieldError::Whitespace("env"))
+    ));
+
+    let err_newline = validate_env_key("CC\n").unwrap_err();
+    assert!(matches!(
+        err_newline,
+        PackageError::Field(FieldError::Whitespace("env"))
+    ));
+}
+
+#[test]
+fn test_validate_env_key_invalid_start_char() {
+    let err_digit = validate_env_key("1VAR").unwrap_err();
+    assert!(matches!(
+        err_digit,
+        PackageError::InvalidEnv(EnvError::InvalidStartChar('1'))
+    ));
+
+    let err_dash = validate_env_key("-VAR").unwrap_err();
+    assert!(matches!(
+        err_dash,
+        PackageError::InvalidEnv(EnvError::InvalidStartChar('-'))
+    ));
+
+    let err_dollar = validate_env_key("$VAR").unwrap_err();
+    assert!(matches!(
+        err_dollar,
+        PackageError::InvalidEnv(EnvError::InvalidStartChar('$'))
+    ));
+}
+
+#[test]
+fn test_validate_env_key_invalid_chars() {
+    let err_dash = validate_env_key("MY-VAR").unwrap_err();
+    assert!(matches!(
+        err_dash,
+        PackageError::InvalidEnv(EnvError::InvalidChar('-'))
+    ));
+
+    let err_dot = validate_env_key("MY.VAR").unwrap_err();
+    assert!(matches!(
+        err_dot,
+        PackageError::InvalidEnv(EnvError::InvalidChar('.'))
+    ));
+
+    let err_equal = validate_env_key("MY=VAR").unwrap_err();
+    assert!(matches!(
+        err_equal,
+        PackageError::InvalidEnv(EnvError::InvalidChar('='))
+    ));
+
+    let err_space = validate_env_key("MY VAR").unwrap_err();
+    assert!(matches!(
+        err_space,
+        PackageError::InvalidEnv(EnvError::InvalidChar(' '))
+    ));
+}
+
+#[test]
+fn test_validate_package_env_valid() {
+    let mut pkg = sample_package();
+    pkg.env.insert("CC".to_string(), "clang".to_string());
+    pkg.env
+        .insert("CFLAGS".to_string(), "-O2 -pipe".to_string());
+    pkg.env.insert("_CUSTOM".to_string(), "1".to_string());
+    assert!(validate_package(&pkg).is_ok());
+}
+
+#[test]
+fn test_validate_package_env_invalid_key() {
+    let mut pkg = sample_package();
+    pkg.env.insert("".to_string(), "value".to_string());
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Empty("env"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.env.insert(" CC".to_string(), "value".to_string());
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::Field(FieldError::Whitespace("env"))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.env.insert("1VAR".to_string(), "value".to_string());
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::InvalidEnv(EnvError::InvalidStartChar('1'))
+    ));
+
+    let mut pkg = sample_package();
+    pkg.env.insert("MY-VAR".to_string(), "value".to_string());
+    assert!(matches!(
+        validate_package(&pkg).unwrap_err(),
+        PackageError::InvalidEnv(EnvError::InvalidChar('-'))
     ));
 }
