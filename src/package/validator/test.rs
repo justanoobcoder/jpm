@@ -513,6 +513,7 @@ fn test_validate_package_dependencies() {
         build: vec!["cmake".to_string()],
         runtime: vec!["glibc".to_string()],
         optional: vec!["wayland".to_string()],
+        conflicts: vec!["libressl".to_string()],
     });
     assert!(validate_package(&pkg).is_ok());
 
@@ -521,6 +522,7 @@ fn test_validate_package_dependencies() {
         build: vec!["".to_string()],
         runtime: vec![],
         optional: vec![],
+        conflicts: vec![],
     });
     assert!(matches!(
         validate_package(&pkg_build_err).unwrap_err(),
@@ -532,6 +534,7 @@ fn test_validate_package_dependencies() {
         build: vec![],
         runtime: vec![" glibc".to_string()],
         optional: vec![],
+        conflicts: vec![],
     });
     assert!(matches!(
         validate_package(&pkg_runtime_err).unwrap_err(),
@@ -543,10 +546,23 @@ fn test_validate_package_dependencies() {
         build: vec![],
         runtime: vec![],
         optional: vec!["-wayland".to_string()],
+        conflicts: vec![],
     });
     assert!(matches!(
         validate_package(&pkg_optional_err).unwrap_err(),
         PackageError::InvalidName(NameError::InvalidStartChar('-'))
+    ));
+
+    let mut pkg_conflicts_err = sample_package();
+    pkg_conflicts_err.dependency = Some(Dependency {
+        build: vec![],
+        runtime: vec![],
+        optional: vec![],
+        conflicts: vec!["bad@conflict".to_string()],
+    });
+    assert!(matches!(
+        validate_package(&pkg_conflicts_err).unwrap_err(),
+        PackageError::InvalidName(NameError::InvalidChar('@'))
     ));
 }
 

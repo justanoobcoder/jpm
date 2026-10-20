@@ -30,6 +30,7 @@ src_dir = "btop-1.4.7"
 build = ["cmake", "gcc"]
 runtime = ["glibc"]
 optional = ["rocm"]
+conflicts = ["btop-git"]
 
 [build]
 system = "autotools"
@@ -101,6 +102,7 @@ fn test_parse_full_manifest() {
     assert_eq!(dep.build, vec!["cmake", "gcc"]);
     assert_eq!(dep.runtime, vec!["glibc"]);
     assert_eq!(dep.optional, vec!["rocm"]);
+    assert_eq!(dep.conflicts, vec!["btop-git"]);
 
     assert_eq!(pkg.build.system, BuildSystem::Autotools);
     assert_eq!(
@@ -197,6 +199,7 @@ system = "make"
     assert!(dep.build.is_empty());
     assert!(dep.runtime.is_empty());
     assert!(dep.optional.is_empty());
+    assert!(dep.conflicts.is_empty());
 }
 
 #[test]
@@ -599,6 +602,7 @@ fn test_parse_dependency_valid_sections() {
 build = ["cmake", "gcc-core", "lib32_zlib"]
 runtime = ["glibc", "systemd"]
 optional = ["wayland", "x11"]
+conflicts = ["btop-bin"]
 "#
     );
     let pkg = parse(&toml).expect("valid dependencies should parse successfully");
@@ -606,6 +610,7 @@ optional = ["wayland", "x11"]
     assert_eq!(dep.build, vec!["cmake", "gcc-core", "lib32_zlib"]);
     assert_eq!(dep.runtime, vec!["glibc", "systemd"]);
     assert_eq!(dep.optional, vec!["wayland", "x11"]);
+    assert_eq!(dep.conflicts, vec!["btop-bin"]);
 }
 
 #[test]
@@ -675,6 +680,17 @@ runtime = ["{long_dep}"]
     assert_eq!(
         parse(&toml_too_long).unwrap_err().to_string(),
         "Invalid package name: too long (max 64 characters)"
+    );
+
+    let toml_conflicts_err = format!(
+        r#"{VALID_MINIMAL_MANIFEST}
+[dependency]
+conflicts = [""]
+"#
+    );
+    assert_eq!(
+        parse(&toml_conflicts_err).unwrap_err().to_string(),
+        "Invalid field value: `dependency.conflicts` must not be empty"
     );
 }
 
