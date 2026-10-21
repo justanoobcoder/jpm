@@ -56,9 +56,9 @@ fn test_package_path_structure() {
 
 #[test]
 fn test_repo_from_env_default() {
-    let prev = env::var_os(consts::MANIFEST_DIR_ENV);
+    let prev = env::var_os(consts::env::MANIFEST_DIR_ENV);
     unsafe {
-        env::remove_var(consts::MANIFEST_DIR_ENV);
+        env::remove_var(consts::env::MANIFEST_DIR_ENV);
     }
 
     let repo = Repo::from_env();
@@ -67,17 +67,17 @@ fn test_repo_from_env_default() {
 
     if let Some(val) = prev {
         unsafe {
-            env::set_var(consts::MANIFEST_DIR_ENV, val);
+            env::set_var(consts::env::MANIFEST_DIR_ENV, val);
         }
     }
 }
 
 #[test]
 fn test_repo_from_env_custom() {
-    let prev = env::var_os(consts::MANIFEST_DIR_ENV);
+    let prev = env::var_os(consts::env::MANIFEST_DIR_ENV);
     let custom_manifest_dir = "/tmp/custom_jpm";
     unsafe {
-        env::set_var(consts::MANIFEST_DIR_ENV, custom_manifest_dir);
+        env::set_var(consts::env::MANIFEST_DIR_ENV, custom_manifest_dir);
     }
 
     let repo = Repo::from_env();
@@ -88,11 +88,11 @@ fn test_repo_from_env_custom() {
 
     if let Some(val) = prev {
         unsafe {
-            env::set_var(consts::MANIFEST_DIR_ENV, val);
+            env::set_var(consts::env::MANIFEST_DIR_ENV, val);
         }
     } else {
         unsafe {
-            env::remove_var(consts::MANIFEST_DIR_ENV);
+            env::remove_var(consts::env::MANIFEST_DIR_ENV);
         }
     }
 }

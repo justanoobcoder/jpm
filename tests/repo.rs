@@ -73,9 +73,9 @@ fn test_integration_env_var_override() {
     fs::create_dir_all(nano_path.parent().unwrap()).unwrap();
     fs::write(&nano_path, SAMPLE_MANIFEST).unwrap();
 
-    let prev = std::env::var_os(consts::MANIFEST_DIR_ENV);
+    let prev = std::env::var_os(consts::env::MANIFEST_DIR_ENV);
     unsafe {
-        std::env::set_var(consts::MANIFEST_DIR_ENV, &temp);
+        std::env::set_var(consts::env::MANIFEST_DIR_ENV, &temp);
     }
 
     let pkg = get_package("nano").expect("package should be found via JPM_MANIFEST_DIR");
@@ -85,11 +85,11 @@ fn test_integration_env_var_override() {
 
     if let Some(val) = prev {
         unsafe {
-            std::env::set_var(consts::MANIFEST_DIR_ENV, val);
+            std::env::set_var(consts::env::MANIFEST_DIR_ENV, val);
         }
     } else {
         unsafe {
-            std::env::remove_var(consts::MANIFEST_DIR_ENV);
+            std::env::remove_var(consts::env::MANIFEST_DIR_ENV);
         }
     }
 

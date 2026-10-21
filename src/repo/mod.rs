@@ -23,7 +23,7 @@ impl Default for Repo {
 
 impl Repo {
     pub fn from_env() -> Self {
-        let base_dir = env::var_os(consts::MANIFEST_DIR_ENV)
+        let base_dir = env::var_os(consts::env::MANIFEST_DIR_ENV)
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from(consts::env::JPM_MANIFEST_DIR));
 
